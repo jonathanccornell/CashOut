@@ -9,6 +9,7 @@ import DisclaimerModal from './components/DisclaimerModal';
 import PushAlerts from './components/PushAlerts';
 import PricingModal from './components/PricingModal';
 import { useSubscription } from './hooks/useSubscription';
+import LearningLog from './components/LearningLog';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'picks',   label: "Today's Picks", icon: '⚡' },
   { id: 'parlays', label: 'Parlays',        icon: '🎯' },
   { id: 'record',  label: 'Record',         icon: '📊' },
+  { id: 'learning',label: 'Learning',       icon: '🧠' },
   { id: 'history', label: 'History',        icon: '📋' },
 ];
 
@@ -333,6 +335,7 @@ export default function App() {
         )}
         {tab === 'record' && <RecordDashboard record={record} />}
         {tab === 'history' && <HistoryLog />}
+        {tab === 'learning' && <LearningLog />}
 
         {/* Allow record/history without picks */}
         {!hasPicks && !loading && tab === 'record' && <RecordDashboard record={record} />}

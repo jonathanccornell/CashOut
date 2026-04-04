@@ -10,6 +10,8 @@ const chatRouter = require('./routes/chat');
 // const { router: alertsRouter } = require('./routes/alerts');   // enable when ready
 // const { startLiveScanner } = require('./livescanner');          // enable when ready
 // const stripeRouter = require('./routes/stripe');                // enable when ready
+const learningsRouter = require('./routes/learnings');
+const { scheduleLearning } = require('./learning');
 const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, db } = require('./db');
 const { generatePicks, gradePicks } = require('./claude');
 
@@ -26,6 +28,7 @@ app.use('/api/record', recordRouter);
 app.use('/api/chat', chatRouter);
 // app.use('/api/alerts', alertsRouter);  // enable when ready
 // app.use('/api/stripe', stripeRouter);  // enable when ready
+app.use('/api/learnings', learningsRouter);
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {
@@ -133,4 +136,5 @@ app.listen(PORT, () => {
   // Auto-generate on startup if no picks exist today
   setTimeout(autoGeneratePicks, 3000);
   // startLiveScanner();  // enable when ready
+  scheduleLearning(); // weekly self-improvement analysis every Sunday
 });

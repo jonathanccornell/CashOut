@@ -1,4 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const { getCurrentLearnings } = require('./learning');
 
 const client = new Anthropic();
 
@@ -174,7 +175,21 @@ async function generatePicks() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
+  // Inject self-learned performance insights
+  const learnings = getCurrentLearnings();
+  const learningsBlock = learnings ? `
+## YOUR PERFORMANCE LEARNINGS (from your own track record — follow these)
+
+Summary: ${learnings.summary}
+
+Specific insights from your results:
+${learnings.insights.map(i => `- [${i.category.toUpperCase()}] ${i.insight}${i.confidence_adjustment !== 0 ? ` (adjust confidence ${i.confidence_adjustment > 0 ? '+' : ''}${i.confidence_adjustment} for this category)` : ''} | Data: ${i.data}`).join('\n')}
+
+Apply these learnings NOW when selecting and weighting today's picks. Double down on what's working. Avoid what isn't.
+` : '';
+
   const userPrompt = `Today is ${today}. Execute the full CashOut sharp analysis pipeline:
+${learningsBlock}
 
 **PHASE 1 — GAME SLATE:**
 Search for every game today across NFL, NBA, MLB, NHL, NCAAF, NCAAB, MLS/Soccer.
