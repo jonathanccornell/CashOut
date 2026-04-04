@@ -301,4 +301,74 @@ Use web search when you need current injury news, line information, or game data
   return text;
 }
 
-module.exports = { generatePicks, chatAboutGames };
+// Auto-grade picks by searching for game results
+async function gradePicks(pendingPicks) {
+  if (!pendingPicks || pendingPicks.length === 0) return [];
+
+  const pickList = pendingPicks.map(p =>
+    `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type}`
+  ).join('\n');
+
+  const prompt = `You are grading sports betting picks. Search for the final scores and results of these games, then determine if each pick won (W), lost (L), or pushed (Push). Only grade games that are fully completed. If a game hasn't finished yet, return "Pending".
+
+PICKS TO GRADE:
+${pickList}
+
+Return ONLY a JSON array like this:
+[
+  { "id": 1, "result": "W", "reason": "Team A won 108-102, covered -3.5" },
+  { "id": 2, "result": "L", "reason": "Final score was 7-3, over hit at 8.5" },
+  { "id": 3, "result": "Pending", "reason": "Game not yet played" }
+]
+
+Rules:
+- Spread: W if pick team covers, L if not, Push if exactly on the number
+- Total (over/under): W if total crosses the line, L if not, Push if exactly on the number
+- Moneyline: W if pick team wins, L if not
+- Only return results for picks in the list above. Return ONLY the JSON array, nothing else.`;
+
+  try {
+    let messages = [{ role: 'user', content: prompt }];
+    let finalText = '';
+    let maxTurns = 8;
+
+    while (maxTurns > 0) {
+      const response = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2048,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 10 }],
+        messages
+      });
+
+      let turnText = '';
+      for (const block of response.content) {
+        if (block.type === 'text') turnText += block.text;
+      }
+      if (turnText) finalText = turnText;
+
+      if (response.stop_reason !== 'tool_use') break;
+
+      messages.push({ role: 'assistant', content: response.content });
+      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+      if (toolUseBlocks.length > 0) {
+        messages.push({
+          role: 'user',
+          content: toolUseBlocks.map(block => ({
+            type: 'tool_result', tool_use_id: block.id,
+            content: 'Search completed. Continue grading.'
+          }))
+        });
+      }
+      maxTurns--;
+    }
+
+    const jsonMatch = finalText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('No JSON array in response');
+    return JSON.parse(jsonMatch[0]);
+  } catch (err) {
+    console.error('[CashOut] Grade error:', err.message);
+    return [];
+  }
+}
+
+module.exports = { generatePicks, chatAboutGames, gradePicks };

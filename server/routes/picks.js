@@ -10,7 +10,8 @@ const {
   insertParlay,
   getTodayDate
 } = require('../db');
-const { generatePicks } = require('../claude');
+const { generatePicks, gradePicks } = require('../claude');
+const { db } = require('../db');
 
 let generating = false;
 
@@ -90,6 +91,24 @@ router.post('/generate', async (req, res) => {
     generating = false;
     console.error('[CashOut] Generation error:', error);
     res.status(500).json({ error: 'Failed to generate picks', details: error.message });
+  }
+});
+
+// POST /api/picks/grade — auto-grade pending picks
+router.post('/grade', async (req, res) => {
+  try {
+    const today = getTodayDate();
+    const pending = db.prepare("SELECT * FROM picks WHERE date = ? AND result = 'Pending'").all(today);
+    if (pending.length === 0) return res.json({ message: 'No pending picks to grade' });
+    const results = await gradePicks(pending);
+    for (const r of results) {
+      if (r.result && r.result !== 'Pending') {
+        db.prepare('UPDATE picks SET result = ? WHERE id = ?').run(r.result, r.id);
+      }
+    }
+    res.json({ graded: results });
+  } catch (err) {
+    res.status(500).json({ error: 'Grading failed', details: err.message });
   }
 });
 

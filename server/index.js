@@ -7,8 +7,8 @@ const picksRouter = require('./routes/picks');
 const parlaysRouter = require('./routes/parlays');
 const recordRouter = require('./routes/record');
 const chatRouter = require('./routes/chat');
-const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay } = require('./db');
-const { generatePicks } = require('./claude');
+const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, db } = require('./db');
+const { generatePicks, gradePicks } = require('./claude');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -61,6 +61,43 @@ async function autoGeneratePicks() {
   }
 }
 
+async function autoGradePicks() {
+  const today = getTodayDate();
+  const pending = db.prepare("SELECT * FROM picks WHERE date = ? AND result = 'Pending'").all(today);
+  if (pending.length === 0) {
+    console.log('[CashOut] No pending picks to grade.');
+    return;
+  }
+  console.log(`[CashOut] Auto-grading ${pending.length} pending picks...`);
+  try {
+    const results = await gradePicks(pending);
+    for (const r of results) {
+      if (r.result && r.result !== 'Pending') {
+        db.prepare('UPDATE picks SET result = ? WHERE id = ?').run(r.result, r.id);
+        console.log(`[CashOut] Pick ${r.id} graded: ${r.result} — ${r.reason}`);
+      }
+    }
+    // Also grade parlays based on their legs
+    const pendingParlays = db.prepare("SELECT * FROM parlays WHERE date = ? AND result = 'Pending'").all(today);
+    for (const parlay of pendingParlays) {
+      const legs = JSON.parse(parlay.legs);
+      const parlayPicks = db.prepare(`SELECT result FROM picks WHERE date = ? AND result != 'Pending'`).all(today);
+      if (parlayPicks.length > 0) {
+        const allResolved = pending.length === 0 || results.every(r => r.result !== 'Pending');
+        if (allResolved) {
+          const hasLoss = results.some(r => r.result === 'L');
+          const hasPush = results.some(r => r.result === 'Push');
+          const parlayResult = hasLoss ? 'L' : hasPush ? 'Push' : 'W';
+          db.prepare('UPDATE parlays SET result = ? WHERE id = ?').run(parlayResult, parlay.id);
+        }
+      }
+    }
+    console.log('[CashOut] Auto-grading complete.');
+  } catch (err) {
+    console.error('[CashOut] Auto-grading failed:', err.message);
+  }
+}
+
 // Schedule daily auto-generation at 9:00 AM server time
 function scheduleDailyGeneration() {
   const now = new Date();
@@ -73,6 +110,16 @@ function scheduleDailyGeneration() {
     setInterval(autoGeneratePicks, 24 * 60 * 60 * 1000); // then every 24 hours
   }, msUntil9am);
   console.log(`[CashOut] Daily auto-generation scheduled for ${next9am.toLocaleTimeString()}`);
+
+  // Schedule nightly auto-grading at 11:00 PM
+  const next11pm = new Date(now);
+  next11pm.setHours(23, 0, 0, 0);
+  if (now >= next11pm) next11pm.setDate(next11pm.getDate() + 1);
+  setTimeout(() => {
+    autoGradePicks();
+    setInterval(autoGradePicks, 24 * 60 * 60 * 1000);
+  }, next11pm - now);
+  console.log(`[CashOut] Nightly auto-grading scheduled for ${next11pm.toLocaleTimeString()}`);
 }
 
 app.listen(PORT, () => {
