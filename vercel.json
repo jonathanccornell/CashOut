@@ -3,6 +3,10 @@
   "outputDirectory": "client/dist",
   "rewrites": [
     {
+      "source": "/api/og",
+      "destination": "/api/og"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://cashout-production.up.railway.app/api/:path*"
     }
