@@ -7,9 +7,9 @@ const picksRouter = require('./routes/picks');
 const parlaysRouter = require('./routes/parlays');
 const recordRouter = require('./routes/record');
 const chatRouter = require('./routes/chat');
-const { router: alertsRouter } = require('./routes/alerts');
-const { startLiveScanner } = require('./livescanner');
-const stripeRouter = require('./routes/stripe');
+// const { router: alertsRouter } = require('./routes/alerts');   // enable when ready
+// const { startLiveScanner } = require('./livescanner');          // enable when ready
+// const stripeRouter = require('./routes/stripe');                // enable when ready
 const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, db } = require('./db');
 const { generatePicks, gradePicks } = require('./claude');
 
@@ -24,8 +24,8 @@ app.use('/api/picks', picksRouter);
 app.use('/api/parlays', parlaysRouter);
 app.use('/api/record', recordRouter);
 app.use('/api/chat', chatRouter);
-app.use('/api/alerts', alertsRouter);
-app.use('/api/stripe', stripeRouter);
+// app.use('/api/alerts', alertsRouter);  // enable when ready
+// app.use('/api/stripe', stripeRouter);  // enable when ready
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {
@@ -132,6 +132,5 @@ app.listen(PORT, () => {
   scheduleDailyGeneration();
   // Auto-generate on startup if no picks exist today
   setTimeout(autoGeneratePicks, 3000);
-  // Start live bet scanner (runs every 20 min during game hours)
-  if (process.env.VAPID_PUBLIC_KEY) startLiveScanner();
+  // startLiveScanner();  // enable when ready
 });
