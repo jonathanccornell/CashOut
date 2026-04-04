@@ -17,7 +17,6 @@ const TABS = [
   { id: 'picks',   label: "Today's Picks", icon: '⚡' },
   { id: 'parlays', label: 'Parlays',        icon: '🎯' },
   { id: 'record',  label: 'Record',         icon: '📊' },
-  { id: 'learning',label: 'Learning',       icon: '🧠' },
   { id: 'history', label: 'History',        icon: '📋' },
 ];
 
@@ -335,7 +334,6 @@ export default function App() {
         )}
         {tab === 'record' && <RecordDashboard record={record} />}
         {tab === 'history' && <HistoryLog />}
-        {tab === 'learning' && <LearningLog />}
 
         {/* Allow record/history without picks */}
         {!hasPicks && !loading && tab === 'record' && <RecordDashboard record={record} />}
