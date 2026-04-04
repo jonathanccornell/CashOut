@@ -1,0 +1,9 @@
+node_modules/
+client/node_modules/
+client/dist/
+.env
+cashout.db
+cashout.db-shm
+cashout.db-wal
+.DS_Store
+*.log
