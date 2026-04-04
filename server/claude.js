@@ -287,43 +287,15 @@ ${contextStr}
 Use web search when you need current injury news, line information, or game data to answer properly.`;
 
   const response = await client.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 2048,
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
     system: chatSystem,
-    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
     messages
   });
 
-  // Extract final text (handle tool use in conversation)
   let text = '';
   for (const block of response.content) {
     if (block.type === 'text') text += block.text;
-  }
-
-  // If tool use happened, do one more turn
-  if (response.stop_reason === 'tool_use') {
-    const allMessages = [
-      ...messages,
-      { role: 'assistant', content: response.content },
-      {
-        role: 'user',
-        content: response.content.filter(b => b.type === 'tool_use').map(block => ({
-          type: 'tool_result', tool_use_id: block.id,
-          content: 'Search completed.'
-        }))
-      }
-    ];
-    const followUp = await client.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 2048,
-      system: chatSystem,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
-      messages: allMessages
-    });
-    text = '';
-    for (const block of followUp.content) {
-      if (block.type === 'text') text += block.text;
-    }
   }
 
   return text;
