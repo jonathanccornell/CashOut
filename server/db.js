@@ -158,10 +158,21 @@ function getAllTimeRecord() {
   const decided = picks.wins + picks.losses;
   const roi = decided > 0 ? (((picks.wins * 0.91 - picks.losses) / decided) * 100).toFixed(1) : '0.0';
 
-  // Current streak
+  // Current streak (all picks)
   const recentPicks = db.prepare(
     "SELECT result FROM picks WHERE result IN ('W', 'L') ORDER BY date DESC, id DESC LIMIT 20"
   ).all();
+
+  // Lock streak
+  const recentLocks = db.prepare(
+    "SELECT result FROM picks WHERE is_lock = 1 AND result IN ('W', 'L') ORDER BY date DESC, id DESC LIMIT 20"
+  ).all();
+  let lockStreak = 0, lockStreakType = '';
+  for (const p of recentLocks) {
+    if (lockStreakType === '') lockStreakType = p.result;
+    if (p.result === lockStreakType) lockStreak++;
+    else break;
+  }
   let streak = 0;
   let streakType = '';
   for (const p of recentPicks) {
@@ -200,7 +211,7 @@ function getAllTimeRecord() {
 
   return {
     picks: { ...picks, winRate: decided > 0 ? ((picks.wins / decided) * 100).toFixed(1) : '0.0' },
-    locks,
+    locks: { ...locks, streak: lockStreak > 0 ? `${lockStreak}${lockStreakType}` : null },
     parlays,
     roi,
     streak: streak > 0 ? `${streak}${streakType}` : '0-0',

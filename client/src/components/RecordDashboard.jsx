@@ -132,26 +132,53 @@ export default function RecordDashboard({ record }) {
           <div className="flex items-center gap-2 mb-4">
             <span className="text-gold">♛</span>
             <span className="text-[10px] font-black text-gold uppercase tracking-widest">Lock of the Day</span>
+            {locks.total > 0 && (
+              <span className="ml-auto text-[9px] text-white/20 uppercase tracking-wider">{locks.total} total</span>
+            )}
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <div className="text-2xl font-black text-white tabular">{locks.wins}-{locks.losses}</div>
-              <div className="text-xs text-white/20 mt-0.5">W-L</div>
+              <div className="text-2xl font-black text-white tabular">
+                {locks.wins}-{locks.losses}{locks.pushes > 0 ? `-${locks.pushes}` : ''}
+              </div>
+              <div className="text-[10px] text-white/20 mt-0.5">W-L{locks.pushes > 0 ? '-P' : ''}</div>
             </div>
             <div className="h-8 w-px bg-white/5" />
             <div>
               <div className="text-2xl font-black text-neon tabular">
                 {(locks.wins + locks.losses) > 0
                   ? ((locks.wins / (locks.wins + locks.losses)) * 100).toFixed(0)
-                  : 0}%
+                  : '—'}%
               </div>
-              <div className="text-xs text-white/20 mt-0.5">hit rate</div>
+              <div className="text-[10px] text-white/20 mt-0.5">hit rate</div>
             </div>
             <div className="h-8 w-px bg-white/5" />
             <div>
-              <div className="text-2xl font-black text-white/30 tabular">{locks.total}</div>
-              <div className="text-xs text-white/20 mt-0.5">total</div>
+              {(() => {
+                const decided = locks.wins + locks.losses;
+                const lockRoi = decided > 0
+                  ? (((locks.wins * 0.91 - locks.losses) / decided) * 100).toFixed(1)
+                  : null;
+                const pos = lockRoi && parseFloat(lockRoi) >= 0;
+                return (
+                  <>
+                    <div className={`text-2xl font-black tabular ${lockRoi ? (pos ? 'text-neon' : 'text-red-400') : 'text-white/20'}`}>
+                      {lockRoi ? `${pos ? '+' : ''}${lockRoi}%` : '—'}
+                    </div>
+                    <div className="text-[10px] text-white/20 mt-0.5">lock ROI</div>
+                  </>
+                );
+              })()}
             </div>
+          </div>
+          {/* Lock win bar + streak */}
+          <div className="mt-4 flex items-center gap-3">
+            <div className="flex-1"><WinBar wins={locks.wins} losses={locks.losses} /></div>
+            {locks.streak && (
+              <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${locks.streak.endsWith('W') ? 'text-neon bg-neon/10' : 'text-red-400 bg-red-400/10'}`}>
+                {locks.streak} streak
+              </span>
+            )}
           </div>
         </div>
 
