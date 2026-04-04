@@ -224,9 +224,10 @@ async function generatePicks() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
-  // Inject self-learned performance insights
+  // Inject self-learned performance insights + post-game analyses
   const learnings = getCurrentLearnings();
-  const learningsBlock = learnings ? `
+
+  const weeklyInsightsBlock = (learnings && learnings.insights.length > 0) ? `
 ## YOUR PERFORMANCE LEARNINGS (from your own track record — follow these)
 
 Summary: ${learnings.summary}
@@ -236,6 +237,19 @@ ${learnings.insights.map(i => `- [${i.category.toUpperCase()}] ${i.insight}${i.c
 
 Apply these learnings NOW when selecting and weighting today's picks. Double down on what's working. Avoid what isn't.
 ` : '';
+
+  const postGameBlock = (learnings && learnings.postGameAnalyses && learnings.postGameAnalyses.length > 0) ? `
+## RECENT POST-GAME ANALYSIS (WHY your last bets won/lost — learn from this)
+
+${learnings.postGameAnalyses.map(a => `[${a.date}] ${a.matchup} | ${a.pick} → ${a.result}
+  WHY: ${a.why}
+  KEY FACTOR: ${a.key_factor}
+  LESSON: ${a.lesson}`).join('\n\n')}
+
+Use these lessons to avoid repeating mistakes and double down on what's working.
+` : '';
+
+  const learningsBlock = weeklyInsightsBlock + postGameBlock;
 
   const userPrompt = `Today is ${today}. Execute the full CashOut sharp analysis pipeline:
 ${learningsBlock}

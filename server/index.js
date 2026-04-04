@@ -11,7 +11,7 @@ const chatRouter = require('./routes/chat');
 // const { startLiveScanner } = require('./livescanner');          // enable when ready
 // const stripeRouter = require('./routes/stripe');                // enable when ready
 const learningsRouter = require('./routes/learnings');
-const { scheduleLearning } = require('./learning');
+const { scheduleLearning, runDailyPostGameAnalysis } = require('./learning');
 const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, db } = require('./db');
 const { generatePicks, gradePicks } = require('./claude');
 
@@ -128,6 +128,16 @@ function scheduleDailyGeneration() {
     setInterval(autoGradePicks, 24 * 60 * 60 * 1000);
   }, next11pm - now);
   console.log(`[CashOut] Nightly auto-grading scheduled for ${next11pm.toLocaleTimeString()}`);
+
+  // Schedule post-game analysis at 11:30 PM (30 min after grading)
+  const next1130pm = new Date(now);
+  next1130pm.setHours(23, 30, 0, 0);
+  if (now >= next1130pm) next1130pm.setDate(next1130pm.getDate() + 1);
+  setTimeout(() => {
+    runDailyPostGameAnalysis();
+    setInterval(runDailyPostGameAnalysis, 24 * 60 * 60 * 1000);
+  }, next1130pm - now);
+  console.log(`[CashOut] Post-game analysis scheduled for ${next1130pm.toLocaleTimeString()}`);
 }
 
 app.listen(PORT, () => {

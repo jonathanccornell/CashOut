@@ -3,7 +3,7 @@ const { db } = require('./db');
 
 const client = new Anthropic();
 
-// Migrate: create learnings table
+// Migrate: create learnings tables
 try {
   db.exec(`
     CREATE TABLE IF NOT EXISTS model_learnings (
@@ -20,6 +20,18 @@ try {
       picks_analyzed INTEGER,
       summary TEXT,
       ran_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS daily_analysis (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      pick_id INTEGER,
+      matchup TEXT,
+      pick TEXT,
+      result TEXT,
+      why TEXT,
+      key_factor TEXT,
+      lesson TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
     );
   `);
 } catch {}
@@ -221,14 +233,140 @@ Return ONLY a JSON object:
 function getCurrentLearnings() {
   const learnings = db.prepare('SELECT * FROM model_learnings ORDER BY id DESC').all();
   const lastRun = db.prepare('SELECT * FROM learning_runs ORDER BY id DESC LIMIT 1').get();
+  const postGame = getRecentPostGameAnalyses();
 
-  if (learnings.length === 0) return null;
+  if (learnings.length === 0 && postGame.length === 0) return null;
 
   return {
     summary: lastRun?.summary || '',
     insights: learnings,
-    lastRan: lastRun?.ran_at || null
+    lastRan: lastRun?.ran_at || null,
+    postGameAnalyses: postGame
   };
+}
+
+// Run post-game analysis on yesterday's graded picks
+async function runDailyPostGameAnalysis() {
+  // Get yesterday's date
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yDate = yesterday.toISOString().slice(0, 10);
+
+  // Check if we already ran for this date
+  const existing = db.prepare('SELECT id FROM daily_analysis WHERE date = ? LIMIT 1').get(yDate);
+  if (existing) {
+    console.log(`[PostGame] Analysis already exists for ${yDate}, skipping.`);
+    return null;
+  }
+
+  // Get graded picks from yesterday
+  const picks = db.prepare(`
+    SELECT * FROM picks WHERE date = ? AND result IN ('W', 'L', 'Push')
+  `).all(yDate);
+
+  if (picks.length === 0) {
+    console.log(`[PostGame] No graded picks found for ${yDate}.`);
+    return null;
+  }
+
+  console.log(`[PostGame] Analyzing ${picks.length} picks from ${yDate}...`);
+
+  const pickSummaries = picks.map(p =>
+    `ID:${p.id} | ${p.sport} | ${p.matchup} | Pick: ${p.pick} (${p.bet_type}) | Odds: ${p.odds} | Confidence: ${p.confidence} | Result: ${p.result} | Reasoning was: ${p.reasoning}`
+  ).join('\n\n');
+
+  const prompt = `You are Cash — an elite AI sports betting analyst. You placed the following bets on ${yDate} and need to research and understand WHY each one won or lost.
+
+PICKS FROM ${yDate}:
+${pickSummaries}
+
+For EACH pick above:
+1. Search the web to find the actual final score and key events of that game
+2. Research what happened: injuries, player performance, line movement after tip-off/kick-off, key plays
+3. Identify the PRIMARY reason the pick hit or missed (e.g. "Star player scored only 14pts vs expected 28", "Blowout in 4th quarter covered spread", "Pitcher got hurt in 3rd inning", etc.)
+4. Extract a LESSON: What should Cash do differently next time? What signal was missed or overweighted?
+
+Return ONLY a JSON array — one object per pick:
+[
+  {
+    "pick_id": 123,
+    "matchup": "Team A vs Team B",
+    "pick": "Team A -3.5",
+    "result": "W",
+    "why": "One sentence: the actual reason this won or lost based on what happened in the game",
+    "key_factor": "The single most important thing that determined the outcome (e.g. 'LeBron 41pts', 'Starting pitcher ejected', '4th quarter blowout')",
+    "lesson": "One actionable lesson for Cash going forward (e.g. 'Check closer save% before backing teams with shaky closers in MLB')"
+  }
+]
+
+Search the web for each game result. Be specific and factual — cite actual stats and scores.`;
+
+  try {
+    let messages = [{ role: 'user', content: prompt }];
+    let finalText = '';
+    let maxTurns = 12;
+
+    while (maxTurns > 0) {
+      const response = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 8000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 15 }],
+        messages
+      });
+
+      let turnText = '';
+      for (const block of response.content) {
+        if (block.type === 'text') turnText += block.text;
+      }
+      if (turnText) finalText = turnText;
+
+      if (response.stop_reason !== 'tool_use') break;
+
+      messages.push({ role: 'assistant', content: response.content });
+      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+      if (toolUseBlocks.length > 0) {
+        messages.push({
+          role: 'user',
+          content: toolUseBlocks.map(block => ({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: 'Search completed. Continue analysis.'
+          }))
+        });
+      }
+      maxTurns--;
+    }
+
+    const jsonMatch = finalText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('No JSON array in response');
+
+    const analyses = JSON.parse(jsonMatch[0]);
+
+    // Save each pick analysis
+    const insert = db.prepare(`
+      INSERT INTO daily_analysis (date, pick_id, matchup, pick, result, why, key_factor, lesson)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const a of analyses) {
+      insert.run(yDate, a.pick_id, a.matchup, a.pick, a.result, a.why, a.key_factor, a.lesson);
+    }
+
+    console.log(`[PostGame] Saved ${analyses.length} post-game analyses for ${yDate}.`);
+    return analyses;
+  } catch (err) {
+    console.error('[PostGame] Error:', err.message);
+    return null;
+  }
+}
+
+// Get recent post-game analyses (last 7 days) for injection into picks
+function getRecentPostGameAnalyses() {
+  return db.prepare(`
+    SELECT * FROM daily_analysis
+    WHERE date >= date('now', '-7 days')
+    ORDER BY date DESC, id ASC
+  `).all();
 }
 
 // Schedule: run every Sunday at midnight
@@ -251,4 +389,4 @@ function scheduleLearning() {
   }, ms);
 }
 
-module.exports = { runLearningAnalysis, getCurrentLearnings, scheduleLearning };
+module.exports = { runLearningAnalysis, getCurrentLearnings, scheduleLearning, runDailyPostGameAnalysis };
