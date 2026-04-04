@@ -7,6 +7,8 @@ import HistoryLog from './components/HistoryLog';
 import ChatDrawer from './components/ChatDrawer';
 import DisclaimerModal from './components/DisclaimerModal';
 import PushAlerts from './components/PushAlerts';
+import PricingModal from './components/PricingModal';
+import { useSubscription } from './hooks/useSubscription';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -108,6 +110,8 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [serverOnline, setServerOnline] = useState(true);
+  const [showPricing, setShowPricing] = useState(false);
+  const { tier, email, isSharp, isElite, startCheckout, logout } = useSubscription();
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
@@ -216,14 +220,21 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <button onClick={() => setChatOpen(true)}
+              <button onClick={() => isSharp ? setChatOpen(true) : setShowPricing(true)}
                 className="active-press flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.07] hover:border-neon/30 hover:bg-neon/5 transition-all group">
                 <svg className="w-3.5 h-3.5 text-white/40 group-hover:text-neon transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                 </svg>
-                <span className="text-xs text-white/40 group-hover:text-neon transition-colors font-semibold">Ask Cash</span>
+                <span className="text-xs text-white/40 group-hover:text-neon transition-colors font-semibold">
+                  {isSharp ? 'Ask Cash' : '🔒 Ask Cash'}
+                </span>
               </button>
-              <PushAlerts />
+              {isSharp
+                ? <PushAlerts isElite={isElite} onUpgrade={() => setShowPricing(true)} />
+                : null}
+              {!tier
+                ? <button onClick={() => setShowPricing(true)} className="text-[10px] font-black uppercase tracking-wider text-neon/80 hover:text-neon border border-neon/30 hover:border-neon/60 px-3 py-1.5 rounded-lg transition-all">Upgrade</button>
+                : null}
             </div>
           </div>
 
@@ -282,7 +293,25 @@ export default function App() {
               </button>
             </div>
 
-            {lock && <LockOfDay lock={lock} onUpdateResult={updatePickResult} />}
+            {lock && (
+              isSharp
+                ? <LockOfDay lock={lock} onUpdateResult={updatePickResult} />
+                : <div onClick={() => setShowPricing(true)} className="cursor-pointer group">
+                    <div className="relative rounded-2xl border border-gold/20 bg-gradient-to-br from-gold/5 to-transparent p-5 overflow-hidden">
+                      <div className="absolute inset-0 backdrop-blur-sm bg-[#0A0A0A]/60 flex flex-col items-center justify-center z-10 rounded-2xl">
+                        <span className="text-2xl mb-2">🔒</span>
+                        <div className="text-white font-black text-sm">Lock of the Day is Sharp+</div>
+                        <div className="text-white/30 text-xs mt-1 mb-3">Cash's highest-conviction pick, fully reasoned</div>
+                        <button className="bg-neon text-black text-xs font-black px-4 py-2 rounded-xl group-hover:bg-neon/90 transition-all">Unlock for $29/mo</button>
+                      </div>
+                      <div className="blur-sm select-none">
+                        <div className="text-gold text-xs font-black uppercase tracking-widest mb-1">♛ Lock of the Day</div>
+                        <div className="text-white font-black text-xl">████████ -3.5</div>
+                        <div className="text-white/40 text-sm mt-1">Confidence: 91% · 2.0 units</div>
+                      </div>
+                    </div>
+                  </div>
+            )}
 
             {/* Sport filters */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
@@ -368,6 +397,7 @@ export default function App() {
 
       <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
       <DisclaimerModal />
+      {showPricing && <PricingModal onClose={() => setShowPricing(false)} startCheckout={startCheckout} />}
 
       {/* ── TOAST ── */}
       {toast && (
