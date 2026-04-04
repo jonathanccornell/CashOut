@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none">
+  <defs>
+    <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#A8FF3E"/>
+      <stop offset="50%" stop-color="#4ADE80"/>
+      <stop offset="100%" stop-color="#16A34A"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dollar sign icon -->
+  <g transform="translate(60, 10)" filter="url(#glow)">
+    <!-- Top horizontal bar -->
+    <rect x="18" y="8" width="52" height="16" rx="3" fill="url(#greenGrad)"/>
+    <rect x="52" y="0" width="16" height="12" rx="2" fill="url(#greenGrad)"/>
+    <!-- Main S curve - upper arc -->
+    <path d="M18 24 Q18 24 18 38 Q18 52 40 52 Q62 52 62 64 Q62 76 40 76 Q18 76 18 76" stroke="url(#greenGrad)" stroke-width="18" fill="none" stroke-linecap="round"/>
+    <!-- Bottom horizontal bar -->
+    <rect x="14" y="72" width="52" height="16" rx="3" fill="url(#greenGrad)"/>
+    <rect x="14" y="80" width="16" height="12" rx="2" fill="url(#greenGrad)"/>
+  </g>
+
+  <!-- CASHOUT text -->
+  <text x="155" y="88" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="52" letter-spacing="4" fill="url(#greenGrad)" filter="url(#glow)">CASHOUT</text>
+</svg>
