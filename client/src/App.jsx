@@ -6,6 +6,7 @@ import RecordDashboard from './components/RecordDashboard';
 import HistoryLog from './components/HistoryLog';
 import ChatDrawer from './components/ChatDrawer';
 import DisclaimerModal from './components/DisclaimerModal';
+import PushAlerts from './components/PushAlerts';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -222,6 +223,7 @@ export default function App() {
                 </svg>
                 <span className="text-xs text-white/40 group-hover:text-neon transition-colors font-semibold">Ask Cash</span>
               </button>
+              <PushAlerts />
             </div>
           </div>
 
