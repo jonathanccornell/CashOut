@@ -114,11 +114,14 @@ If nothing meets 80+ confidence, return: []`;
   }
 }
 
-// Schedule: every 20 minutes
+// SCAN_INTERVAL: change this one number to dial up frequency as revenue grows
+// 2 min = ~$3-5/day | 30 sec = ~$50-100/day
+const SCAN_INTERVAL_MS = 2 * 60 * 1000;
+
 function startLiveScanner() {
-  console.log('[LiveScanner] Starting — scans every 20 minutes during game hours.');
-  scanLiveBets(); // run once on startup
-  setInterval(scanLiveBets, 20 * 60 * 1000);
+  console.log(`[LiveScanner] Starting — scans every ${SCAN_INTERVAL_MS / 1000}s during game hours.`);
+  scanLiveBets();
+  setInterval(scanLiveBets, SCAN_INTERVAL_MS);
 }
 
 module.exports = { startLiveScanner, scanLiveBets };
