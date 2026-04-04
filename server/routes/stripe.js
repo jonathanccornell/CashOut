@@ -4,7 +4,7 @@ const Stripe = require('stripe');
 const { db } = require('../db');
 const { generateToken, verifyToken } = require('../auth');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // Migrate: subscriptions table
 try {
@@ -31,6 +31,7 @@ const PRICES = {
 
 // POST /api/stripe/checkout — create Stripe Checkout session
 router.post('/checkout', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe not configured yet' });
   const { tier } = req.body; // 'sharp_monthly' | 'elite_monthly' | 'season_pass'
   const priceId = PRICES[tier];
   if (!priceId) return res.status(400).json({ error: 'Invalid tier' });
@@ -55,6 +56,7 @@ router.post('/checkout', async (req, res) => {
 
 // GET /api/stripe/verify?session_id=xxx — verify payment and return access token
 router.get('/verify', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe not configured yet' });
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
 
@@ -101,6 +103,7 @@ router.get('/verify', async (req, res) => {
 
 // POST /api/stripe/webhook — Stripe event webhooks
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
   const sig = req.headers['stripe-signature'];
   let event;
   try {
