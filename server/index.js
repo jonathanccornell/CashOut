@@ -154,18 +154,18 @@ async function autoGradePicks() {
 // Schedule daily auto-generation at 9:00 AM Eastern Time
 function scheduleDailyGeneration() {
   const now = new Date();
-  // Calculate next 9 AM ET using ET offset (UTC-4 EDT / UTC-5 EST)
-  const etOffset = now.toLocaleDateString('en-US', { timeZone: 'America/New_York', timeZoneName: 'short' }).includes('EDT') ? -4 : -5;
-  const nowET = new Date(now.getTime() + etOffset * 3600000);
-  const next9amET = new Date(nowET);
-  next9amET.setHours(9, 0, 0, 0);
-  if (nowET >= next9amET) next9amET.setDate(next9amET.getDate() + 1);
-  const msUntil9am = next9amET - nowET;
+
+  // Get current ET hour using Intl to reliably determine next 9 AM ET
+  const etHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(now));
+  const etMinute = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', minute: 'numeric' }).format(now));
+  const minutesUntil9amET = ((9 - etHour) * 60 - etMinute + 1440) % 1440; // minutes until next 9 AM ET
+  const msUntil9am = minutesUntil9amET * 60 * 1000 || 24 * 60 * 60 * 1000;
+
   setTimeout(() => {
     autoGeneratePicks();
-    setInterval(autoGeneratePicks, 24 * 60 * 60 * 1000); // then every 24 hours
+    setInterval(autoGeneratePicks, 24 * 60 * 60 * 1000);
   }, msUntil9am);
-  console.log(`[CashOut] Daily auto-generation scheduled for ${next9am.toLocaleTimeString()}`);
+  console.log(`[CashOut] Daily auto-generation scheduled in ${Math.round(msUntil9am/60000)} minutes (9 AM ET)`);
 
   // Schedule nightly auto-grading at 3:00 AM UTC (= 11 PM ET) — after all West Coast games finish
   const next3am = new Date(now);
