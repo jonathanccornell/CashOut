@@ -219,6 +219,19 @@ At least 1 of the 5 best bets should be a player prop when strong props exist
 Include 1-3 parlays only if legs are 70+ confidence. Same-game parlays (SGP) are allowed when legs are correlated
 The lock MUST be the single highest-conviction play — can be a prop if confidence is highest there.`;
 
+// Kelly Criterion unit sizing (1/4 Kelly, scaled to 0.5-4.0 units)
+function calculateKellyUnits(confidence, oddsStr) {
+  const p = Math.min(0.80, Math.max(0.52, confidence / 100)); // map confidence to realistic win prob range
+  const q = 1 - p;
+  const odds = parseInt(oddsStr) || -110;
+  const b = odds < 0 ? 100 / Math.abs(odds) : odds / 100;
+  const fullKelly = (b * p - q) / b;
+  if (fullKelly <= 0) return 0.5;
+  const quarterKelly = fullKelly / 4;
+  const units = quarterKelly * 30; // scale to unit range
+  return Math.max(0.5, Math.min(4.0, Math.round(units * 2) / 2)); // round to nearest 0.5
+}
+
 async function generatePicks() {
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -329,16 +342,21 @@ Return ONLY the JSON object. Nothing else.`;
     }
     if (!parsed.parlays) parsed.parlays = [];
 
-    const sanitize = (pick) => ({
-      sport: pick.sport || 'MULTI',
-      matchup: pick.matchup || '',
-      pick: pick.pick || '',
-      betType: pick.betType || 'spread',
-      odds: pick.odds || '-110',
-      confidence: Math.min(100, Math.max(70, parseInt(pick.confidence) || 70)),
-      signals: Array.isArray(pick.signals) ? pick.signals : [],
-      reasoning: pick.reasoning || ''
-    });
+    const sanitize = (pick) => {
+      const conf = Math.min(100, Math.max(70, parseInt(pick.confidence) || 70));
+      const oddsStr = pick.odds || '-110';
+      return {
+        sport: pick.sport || 'MULTI',
+        matchup: pick.matchup || '',
+        pick: pick.pick || '',
+        betType: pick.betType || 'spread',
+        odds: oddsStr,
+        confidence: conf,
+        signals: Array.isArray(pick.signals) ? pick.signals : [],
+        reasoning: pick.reasoning || '',
+        kelly_units: calculateKellyUnits(conf, oddsStr)
+      };
+    };
 
     parsed.lock = sanitize(parsed.lock);
     parsed.picks = parsed.picks.filter(p => p.confidence >= 70).map(sanitize);
@@ -407,31 +425,43 @@ Use web search when you need current injury news, line information, or game data
   return text;
 }
 
-// Auto-grade picks by searching for game results
+// Auto-grade picks + capture closing line for CLV tracking
 async function gradePicks(pendingPicks) {
   if (!pendingPicks || pendingPicks.length === 0) return [];
 
   const pickList = pendingPicks.map(p =>
-    `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type}`
+    `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.odds}`
   ).join('\n');
 
-  const prompt = `You are grading sports betting picks. Search for the final scores and results of these games, then determine if each pick won (W), lost (L), or pushed (Push). Only grade games that are fully completed. If a game hasn't finished yet, return "Pending".
+  const prompt = `You are grading sports betting picks. Search for the final scores and closing lines for these games.
 
 PICKS TO GRADE:
 ${pickList}
 
-Return ONLY a JSON array like this:
+For each pick:
+1. Search for the final score
+2. Determine if it won (W), lost (L), or pushed (Push). Return "Pending" if game not finished.
+3. Find the CLOSING LINE for the bet — the final spread/total/moneyline just before game time
+
+Return ONLY a JSON array:
 [
-  { "id": 1, "result": "W", "reason": "Team A won 108-102, covered -3.5" },
-  { "id": 2, "result": "L", "reason": "Final score was 7-3, over hit at 8.5" },
-  { "id": 3, "result": "Pending", "reason": "Game not yet played" }
+  {
+    "id": 1,
+    "result": "W",
+    "reason": "Team A won 108-102, covered -3.5",
+    "closing_line": "-5"
+  }
 ]
 
+For closing_line: return the closing spread (e.g. "-5"), closing total (e.g. "47.5"), or closing moneyline (e.g. "-165").
+If you cannot find the closing line, return null for closing_line.
+Return ONLY the JSON array.
+
 Rules:
-- Spread: W if pick team covers, L if not, Push if exactly on the number
-- Total (over/under): W if total crosses the line, L if not, Push if exactly on the number
+- Spread: W if pick team covers, L if not, Push if exactly on number
+- Total: W if total crosses the line, L if not, Push if exactly on number
 - Moneyline: W if pick team wins, L if not
-- Only return results for picks in the list above. Return ONLY the JSON array, nothing else.`;
+- Return Pending for unfinished games`;
 
   try {
     let messages = [{ role: 'user', content: prompt }];
@@ -441,7 +471,7 @@ Rules:
     while (maxTurns > 0) {
       const response = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
+        max_tokens: 3000,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 10 }],
         messages
       });
@@ -477,4 +507,4 @@ Rules:
   }
 }
 
-module.exports = { generatePicks, chatAboutGames, gradePicks };
+module.exports = { generatePicks, chatAboutGames, gradePicks, calculateKellyUnits };

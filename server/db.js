@@ -47,6 +47,49 @@ db.exec(`
 // Migrate: add signals column if it doesn't exist
 try { db.exec('ALTER TABLE picks ADD COLUMN signals TEXT DEFAULT "[]"'); } catch {}
 
+// CLV + Kelly columns on picks
+try { db.exec('ALTER TABLE picks ADD COLUMN closing_line TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN clv REAL DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN kelly_units REAL DEFAULT 1.0'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN situations TEXT DEFAULT "[]"'); } catch {}
+
+// Signal performance tracking
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS signal_performance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tag TEXT NOT NULL UNIQUE,
+      appearances INTEGER DEFAULT 0,
+      wins INTEGER DEFAULT 0,
+      losses INTEGER DEFAULT 0,
+      pushes INTEGER DEFAULT 0,
+      total_clv REAL DEFAULT 0,
+      last_updated TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS situational_patterns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pattern TEXT NOT NULL,
+      pick_id INTEGER,
+      game_date TEXT,
+      result TEXT,
+      clv REAL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS official_tendencies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sport TEXT NOT NULL,
+      official_name TEXT NOT NULL,
+      game_date TEXT,
+      matchup TEXT,
+      total_pts INTEGER,
+      went_over INTEGER,
+      pick_side_won INTEGER,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+} catch {}
+
 function getTodayDate() {
   return new Date().toISOString().split('T')[0];
 }
@@ -66,8 +109,8 @@ function getPicksByDate(date) {
 
 function insertPick(pick) {
   const stmt = db.prepare(`
-    INSERT INTO picks (date, sport, matchup, pick, bet_type, odds, confidence, reasoning, is_lock, units, signals)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO picks (date, sport, matchup, pick, bet_type, odds, confidence, reasoning, is_lock, units, signals, kelly_units, situations)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   return stmt.run(
     pick.date || getTodayDate(),
@@ -80,7 +123,9 @@ function insertPick(pick) {
     pick.reasoning || '',
     pick.isLock ? 1 : 0,
     pick.units || 1.0,
-    JSON.stringify(Array.isArray(pick.signals) ? pick.signals : [])
+    JSON.stringify(Array.isArray(pick.signals) ? pick.signals : []),
+    pick.kelly_units || 1.0,
+    JSON.stringify([])
   );
 }
 
@@ -230,6 +275,26 @@ function getAllPicksForExport() {
   return db.prepare('SELECT date, sport, matchup, pick, bet_type, odds, confidence, is_lock, result, units, reasoning FROM picks ORDER BY date DESC, id DESC').all();
 }
 
+function getSignalPerformance() {
+  return db.prepare('SELECT * FROM signal_performance ORDER BY appearances DESC').all();
+}
+
+function getCLVStats() {
+  const picks = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN clv > 0 THEN 1 ELSE 0 END) as positive_clv,
+      SUM(CASE WHEN clv < 0 THEN 1 ELSE 0 END) as negative_clv,
+      AVG(clv) as avg_clv,
+      SUM(CASE WHEN clv > 0 AND result = 'W' THEN 1 ELSE 0 END) as clv_pos_wins,
+      SUM(CASE WHEN clv > 0 AND result = 'L' THEN 1 ELSE 0 END) as clv_pos_losses,
+      SUM(CASE WHEN clv < 0 AND result = 'W' THEN 1 ELSE 0 END) as clv_neg_wins,
+      SUM(CASE WHEN clv < 0 AND result = 'L' THEN 1 ELSE 0 END) as clv_neg_losses
+    FROM picks WHERE clv IS NOT NULL AND result IN ('W','L','Push')
+  `).get();
+  return picks;
+}
+
 module.exports = {
   db,
   getTodayDate,
@@ -245,5 +310,7 @@ module.exports = {
   updateParlayResult,
   getAllTimeRecord,
   getHistory,
-  getAllPicksForExport
+  getAllPicksForExport,
+  getSignalPerformance,
+  getCLVStats
 };

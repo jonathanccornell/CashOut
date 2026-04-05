@@ -11,7 +11,7 @@ const chatRouter = require('./routes/chat');
 // const { startLiveScanner } = require('./livescanner');          // enable when ready
 // const stripeRouter = require('./routes/stripe');                // enable when ready
 const learningsRouter = require('./routes/learnings');
-const { scheduleLearning, runDailyPostGameAnalysis } = require('./learning');
+const { scheduleLearning, runDailyPostGameAnalysis, updateSignalPerformance, calculateCLV, saveSituationalPatterns, trackOfficialsFromAnalysis } = require('./learning');
 const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, db } = require('./db');
 const { generatePicks, gradePicks } = require('./claude');
 
@@ -51,13 +51,17 @@ async function autoGeneratePicks() {
       insertPick({ date: today, sport: result.lock.sport || 'MULTI', matchup: result.lock.matchup,
         pick: result.lock.pick, betType: result.lock.betType, odds: result.lock.odds,
         confidence: result.lock.confidence, reasoning: result.lock.reasoning,
-        signals: result.lock.signals, isLock: true, units: 2.0 });
+        signals: result.lock.signals, isLock: true,
+        units: result.lock.kelly_units || 2.0,
+        kelly_units: result.lock.kelly_units || 2.0 });
     }
     for (const pick of result.picks || []) {
       insertPick({ date: today, sport: pick.sport || 'MULTI', matchup: pick.matchup,
         pick: pick.pick, betType: pick.betType, odds: pick.odds,
         confidence: pick.confidence, reasoning: pick.reasoning,
-        signals: pick.signals, isLock: false, units: 1.0 });
+        signals: pick.signals, isLock: false,
+        units: pick.kelly_units || 1.0,
+        kelly_units: pick.kelly_units || 1.0 });
     }
     for (const parlay of result.parlays || []) {
       insertParlay({ date: today, name: parlay.name, legs: parlay.legs,
@@ -81,10 +85,31 @@ async function autoGradePicks() {
     const results = await gradePicks(pending);
     for (const r of results) {
       if (r.result && r.result !== 'Pending') {
-        db.prepare('UPDATE picks SET result = ? WHERE id = ?').run(r.result, r.id);
-        console.log(`[CashOut] Pick ${r.id} graded: ${r.result} — ${r.reason}`);
+        // Get the full pick for CLV/signal calculation
+        const fullPick = db.prepare('SELECT * FROM picks WHERE id = ?').get(r.id);
+
+        // Calculate CLV if closing line available
+        let clv = null;
+        if (r.closing_line && fullPick) {
+          clv = calculateCLV(fullPick, r.closing_line);
+        }
+
+        // Update pick with result, closing line, and CLV
+        db.prepare('UPDATE picks SET result = ?, closing_line = ?, clv = ? WHERE id = ?')
+          .run(r.result, r.closing_line || null, clv, r.id);
+
+        // Update signal performance table
+        if (fullPick) {
+          updateSignalPerformance(fullPick, r.result, clv);
+          saveSituationalPatterns(fullPick, r.result, clv);
+        }
+
+        console.log(`[CashOut] Pick ${r.id} graded: ${r.result} | CLV: ${clv !== null ? clv.toFixed(2) : 'N/A'} — ${r.reason}`);
       }
     }
+
+    // Trigger official tracking (async, non-blocking)
+    // trackOfficialsFromAnalysis is called from post-game analysis instead
     // Also grade parlays based on their legs
     const pendingParlays = db.prepare("SELECT * FROM parlays WHERE date = ? AND result = 'Pending'").all(today);
     for (const parlay of pendingParlays) {
