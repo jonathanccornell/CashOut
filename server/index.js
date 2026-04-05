@@ -89,8 +89,12 @@ async function autoGeneratePicks() {
 }
 
 async function autoGradePicks() {
-  const today = getTodayDate();
-  const pending = db.prepare("SELECT * FROM picks WHERE date = ? AND result = 'Pending'").all(today);
+  // Grade any picks from the last 2 days still pending — catches late West Coast games + UTC midnight rollover
+  const pending = db.prepare(`
+    SELECT * FROM picks
+    WHERE date >= date('now', '-2 days') AND result = 'Pending'
+    ORDER BY date DESC
+  `).all();
   if (pending.length === 0) {
     console.log('[CashOut] No pending picks to grade.');
     return;
@@ -123,10 +127,8 @@ async function autoGradePicks() {
       }
     }
 
-    // Trigger official tracking (async, non-blocking)
-    // trackOfficialsFromAnalysis is called from post-game analysis instead
     // Also grade parlays based on their legs
-    const pendingParlays = db.prepare("SELECT * FROM parlays WHERE date = ? AND result = 'Pending'").all(today);
+    const pendingParlays = db.prepare(`SELECT * FROM parlays WHERE date >= date('now', '-2 days') AND result = 'Pending'`).all();
     for (const parlay of pendingParlays) {
       const legs = JSON.parse(parlay.legs);
       const parlayPicks = db.prepare(`SELECT result FROM picks WHERE date = ? AND result != 'Pending'`).all(today);
@@ -159,25 +161,25 @@ function scheduleDailyGeneration() {
   }, msUntil9am);
   console.log(`[CashOut] Daily auto-generation scheduled for ${next9am.toLocaleTimeString()}`);
 
-  // Schedule nightly auto-grading at 11:00 PM
-  const next11pm = new Date(now);
-  next11pm.setHours(23, 0, 0, 0);
-  if (now >= next11pm) next11pm.setDate(next11pm.getDate() + 1);
+  // Schedule nightly auto-grading at 3:00 AM UTC (= 11 PM ET) — after all West Coast games finish
+  const next3am = new Date(now);
+  next3am.setHours(3, 0, 0, 0);
+  if (now >= next3am) next3am.setDate(next3am.getDate() + 1);
   setTimeout(() => {
     autoGradePicks();
     setInterval(autoGradePicks, 24 * 60 * 60 * 1000);
-  }, next11pm - now);
-  console.log(`[CashOut] Nightly auto-grading scheduled for ${next11pm.toLocaleTimeString()}`);
+  }, next3am - now);
+  console.log(`[CashOut] Nightly auto-grading scheduled for ${next3am.toISOString()} (3 AM UTC / 11 PM ET)`);
 
-  // Schedule post-game analysis at 11:30 PM (30 min after grading)
-  const next1130pm = new Date(now);
-  next1130pm.setHours(23, 30, 0, 0);
-  if (now >= next1130pm) next1130pm.setDate(next1130pm.getDate() + 1);
+  // Schedule post-game analysis at 3:30 AM UTC (= 11:30 PM ET)
+  const next330am = new Date(now);
+  next330am.setHours(3, 30, 0, 0);
+  if (now >= next330am) next330am.setDate(next330am.getDate() + 1);
   setTimeout(() => {
     runDailyPostGameAnalysis();
     setInterval(runDailyPostGameAnalysis, 24 * 60 * 60 * 1000);
-  }, next1130pm - now);
-  console.log(`[CashOut] Post-game analysis scheduled for ${next1130pm.toLocaleTimeString()}`);
+  }, next330am - now);
+  console.log(`[CashOut] Post-game analysis scheduled for ${next330am.toISOString()} (3:30 AM UTC / 11:30 PM ET)`);
 }
 
 app.listen(PORT, () => {
