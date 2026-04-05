@@ -40,9 +40,10 @@ if (process.env.NODE_ENV === 'production') {
 
 let autoGenerating = false;
 
-// Check if picks were generated in the last 20 hours (guards against UTC midnight rollover + deployment restarts)
+// Check if picks already exist for today in ET — guards against duplicate generation on restart
 function recentPicksExist() {
-  const row = db.prepare(`SELECT COUNT(*) as count FROM picks WHERE created_at >= datetime('now', '-20 hours')`).get();
+  const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const row = db.prepare(`SELECT COUNT(*) as count FROM picks WHERE date = ?`).get(todayET);
   return row.count > 0;
 }
 
@@ -89,12 +90,14 @@ async function autoGeneratePicks() {
 }
 
 async function autoGradePicks() {
-  // Grade any picks from the last 2 days still pending — catches late West Coast games + UTC midnight rollover
+  // Grade any picks from the last 2 days still pending (using ET dates)
+  const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const yesterdayET = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const pending = db.prepare(`
     SELECT * FROM picks
-    WHERE date >= date('now', '-2 days') AND result = 'Pending'
+    WHERE date IN (?, ?) AND result = 'Pending'
     ORDER BY date DESC
-  `).all();
+  `).all(todayET, yesterdayET);
   if (pending.length === 0) {
     console.log('[CashOut] No pending picks to grade.');
     return;
@@ -128,7 +131,7 @@ async function autoGradePicks() {
     }
 
     // Also grade parlays based on their legs
-    const pendingParlays = db.prepare(`SELECT * FROM parlays WHERE date >= date('now', '-2 days') AND result = 'Pending'`).all();
+    const pendingParlays = db.prepare(`SELECT * FROM parlays WHERE date IN (?, ?) AND result = 'Pending'`).all(todayET, yesterdayET);
     for (const parlay of pendingParlays) {
       const legs = JSON.parse(parlay.legs);
       const parlayPicks = db.prepare(`SELECT result FROM picks WHERE date = ? AND result != 'Pending'`).all(today);
@@ -148,13 +151,16 @@ async function autoGradePicks() {
   }
 }
 
-// Schedule daily auto-generation at 9:00 AM server time
+// Schedule daily auto-generation at 9:00 AM Eastern Time
 function scheduleDailyGeneration() {
   const now = new Date();
-  const next9am = new Date(now);
-  next9am.setHours(9, 0, 0, 0);
-  if (now >= next9am) next9am.setDate(next9am.getDate() + 1); // already past 9am, schedule for tomorrow
-  const msUntil9am = next9am - now;
+  // Calculate next 9 AM ET using ET offset (UTC-4 EDT / UTC-5 EST)
+  const etOffset = now.toLocaleDateString('en-US', { timeZone: 'America/New_York', timeZoneName: 'short' }).includes('EDT') ? -4 : -5;
+  const nowET = new Date(now.getTime() + etOffset * 3600000);
+  const next9amET = new Date(nowET);
+  next9amET.setHours(9, 0, 0, 0);
+  if (nowET >= next9amET) next9amET.setDate(next9amET.getDate() + 1);
+  const msUntil9am = next9amET - nowET;
   setTimeout(() => {
     autoGeneratePicks();
     setInterval(autoGeneratePicks, 24 * 60 * 60 * 1000); // then every 24 hours

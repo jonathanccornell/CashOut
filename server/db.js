@@ -91,7 +91,8 @@ try {
 } catch {}
 
 function getTodayDate() {
-  return new Date().toISOString().split('T')[0];
+  // Always use US Eastern time so dates match the US sports calendar
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
 // Picks
