@@ -38,11 +38,24 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+let autoGenerating = false;
+
+// Check if picks were generated in the last 20 hours (guards against UTC midnight rollover + deployment restarts)
+function recentPicksExist() {
+  const row = db.prepare(`SELECT COUNT(*) as count FROM picks WHERE created_at >= datetime('now', '-20 hours')`).get();
+  return row.count > 0;
+}
+
 async function autoGeneratePicks() {
-  if (todayPicksExist()) {
-    console.log(`[CashOut] Picks already exist for ${getTodayDate()}, skipping auto-generation.`);
+  if (autoGenerating) {
+    console.log('[CashOut] Auto-generation already in progress, skipping.');
     return;
   }
+  if (recentPicksExist()) {
+    console.log(`[CashOut] Picks already generated within last 20 hours, skipping auto-generation.`);
+    return;
+  }
+  autoGenerating = true;
   console.log(`[CashOut] Auto-generating picks for ${getTodayDate()}...`);
   try {
     const result = await generatePicks();
@@ -70,6 +83,8 @@ async function autoGeneratePicks() {
     console.log(`[CashOut] Auto-generation complete: 1 Lock + ${result.picks.length} picks + ${result.parlays.length} parlays`);
   } catch (err) {
     console.error('[CashOut] Auto-generation failed:', err.message);
+  } finally {
+    autoGenerating = false;
   }
 }
 
