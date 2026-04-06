@@ -29,6 +29,16 @@ router.post('/generate', async (req, res) => {
     }
 
     if (force) {
+      // SAFETY: never clear picks that have already been graded — users may have acted on them
+      const gradedToday = db.prepare(`SELECT COUNT(*) as count FROM picks WHERE date = ? AND result IN ('W','L','Push')`).get(getTodayDate());
+      if (gradedToday.count > 0) {
+        return res.status(403).json({ error: 'Cannot regenerate — today already has graded results. Picks are locked once games are decided.' });
+      }
+      // Also refuse if any picks exist and it's past 11 AM ET (picks have been live for hours)
+      const etHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(new Date()));
+      if (todayPicksExist() && etHour >= 11) {
+        return res.status(403).json({ error: 'Cannot regenerate after 11 AM ET — picks are locked for the day once users have had them for hours.' });
+      }
       clearTodayPicks();
     }
 
