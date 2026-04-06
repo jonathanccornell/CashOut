@@ -151,21 +151,22 @@ async function autoGradePicks() {
   }
 }
 
-// Schedule daily auto-generation at 9:00 AM Eastern Time
+// Schedule daily auto-generation at 11:00 AM Eastern Time
+// 11 AM gives Cash: NHL morning skate confirmations, MLB lineups, more line movement data
 function scheduleDailyGeneration() {
   const now = new Date();
 
-  // Get current ET hour using Intl to reliably determine next 9 AM ET
+  // Get current ET hour/minute using Intl
   const etHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }).format(now));
   const etMinute = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', minute: 'numeric' }).format(now));
-  const minutesUntil9amET = ((9 - etHour) * 60 - etMinute + 1440) % 1440; // minutes until next 9 AM ET
-  const msUntil9am = minutesUntil9amET * 60 * 1000 || 24 * 60 * 60 * 1000;
+  const minutesUntil11amET = ((11 - etHour) * 60 - etMinute + 1440) % 1440; // minutes until next 11 AM ET
+  const msUntil11am = minutesUntil11amET * 60 * 1000 || 24 * 60 * 60 * 1000;
 
   setTimeout(() => {
     autoGeneratePicks();
     setInterval(autoGeneratePicks, 24 * 60 * 60 * 1000);
-  }, msUntil9am);
-  console.log(`[CashOut] Daily auto-generation scheduled in ${Math.round(msUntil9am/60000)} minutes (9 AM ET)`);
+  }, msUntil11am);
+  console.log(`[CashOut] Daily auto-generation scheduled in ${Math.round(msUntil11am/60000)} minutes (11 AM ET)`);
 
   // Schedule nightly auto-grading at 3:00 AM UTC (= 11 PM ET) — after all West Coast games finish
   const next3am = new Date(now);
