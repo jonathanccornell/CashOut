@@ -297,14 +297,14 @@ Return ONLY the JSON object. Nothing else.`;
   try {
     let messages = [{ role: 'user', content: userPrompt }];
     let finalText = '';
-    let maxTurns = 15;
+    let maxTurns = 10;
 
     while (maxTurns > 0) {
       const response = await client.messages.create({
-        model: 'claude-opus-4-5',
+        model: 'claude-sonnet-4-5',
         max_tokens: 16000,
         system: SYSTEM_PROMPT,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 35 }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 20 }],
         messages
       });
 
