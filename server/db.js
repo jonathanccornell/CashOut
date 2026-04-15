@@ -222,6 +222,10 @@ function updateParlayResult(id, result) {
 
 // Record & Stats
 function getAllTimeRecord() {
+  const normalizeCounts = (row) => Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [key, value ?? 0])
+  );
+
   const decidedRows = db.prepare(`
     SELECT sport, odds, units, result, is_lock
     FROM picks
@@ -255,6 +259,10 @@ function getAllTimeRecord() {
       SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) as pushes
     FROM parlays
   `).get();
+
+  const safePicks = normalizeCounts(picks);
+  const safeLocks = normalizeCounts(locks);
+  const safeParlays = normalizeCounts(parlays);
 
   const totalRisk = decidedRows.reduce((sum, pick) => sum + (Number(pick.units) || 1), 0);
   const totalProfit = decidedRows.reduce((sum, pick) => sum + getPickProfit(pick), 0);
@@ -317,16 +325,16 @@ function getAllTimeRecord() {
   const lockRows = decidedRows.filter(row => row.is_lock === 1);
   const lockRisk = lockRows.reduce((sum, pick) => sum + (Number(pick.units) || 1), 0);
   const lockProfit = lockRows.reduce((sum, pick) => sum + getPickProfit(pick), 0);
-  const decided = picks.wins + picks.losses;
+  const decided = safePicks.wins + safePicks.losses;
 
   return {
-    picks: { ...picks, winRate: decided > 0 ? ((picks.wins / decided) * 100).toFixed(1) : '0.0' },
+    picks: { ...safePicks, winRate: decided > 0 ? ((safePicks.wins / decided) * 100).toFixed(1) : '0.0' },
     locks: {
-      ...locks,
+      ...safeLocks,
       streak: lockStreak > 0 ? `${lockStreak}${lockStreakType}` : null,
       roi: lockRisk > 0 ? ((lockProfit / lockRisk) * 100).toFixed(1) : '0.0'
     },
-    parlays,
+    parlays: safeParlays,
     roi,
     streak: streak > 0 ? `${streak}${streakType}` : '0-0',
     bySport
