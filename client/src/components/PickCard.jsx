@@ -37,92 +37,115 @@ function CopyBtn({ pick }) {
 export default function PickCard({ pick, onUpdateResult, rank }) {
   const [expanded, setExpanded] = useState(false);
   const conf = pick.confidence;
-  const confColor = conf >= 85 ? 'text-neon' : conf >= 70 ? 'text-gold' : 'text-white/40';
+  const confColor = conf >= 85 ? 'text-neon' : conf >= 78 ? 'text-blue-300' : 'text-white/55';
   const sportStyle = SPORT_STYLE[pick.sport] || 'text-white/40 bg-white/4 border-white/8';
   const signals = pick.signals ? (typeof pick.signals === 'string' ? JSON.parse(pick.signals) : pick.signals) : [];
   const pickWithRank = { ...pick, _rank: rank };
   const edgeLabel = conf >= 85 ? 'A+' : conf >= 80 ? 'A' : conf >= 75 ? 'B+' : 'B';
+  const betType = pick.bet_type || pick.betType;
+  const lineValue = pick.line ?? (typeof pick.pick === 'string' ? pick.pick.match(/([+-]?\d+(?:\.\d+)?)/)?.[1] : null);
+  const isSettled = pick.result && pick.result !== 'Pending';
+  const resultGlow =
+    pick.result === 'W' ? 'border-neon/18 shadow-[0_18px_55px_rgba(0,255,133,0.08)]' :
+    pick.result === 'L' ? 'border-red-400/14 shadow-[0_18px_55px_rgba(248,113,113,0.06)]' :
+    pick.result === 'Push' ? 'border-gold/18 shadow-[0_18px_55px_rgba(240,192,64,0.06)]' :
+    'border-white/[0.06] shadow-[0_18px_55px_rgba(0,0,0,0.32)]';
 
   return (
-    <div className="group premium-panel market-grid rounded-[24px] px-5 py-4 hover:border-neon/18 hover:-translate-y-[1px] transition-all">
-      <div className="flex items-start gap-3">
-
-        {/* Left */}
+    <div className={`group premium-panel market-grid rounded-[28px] px-5 py-4 transition-all hover:-translate-y-[1px] ${resultGlow}`}>
+      <div className="flex items-start gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            {rank && (
-              <span className="text-[10px] font-black text-white/20 w-5">#{rank}</span>
-            )}
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${sportStyle}`}>
-              {pick.sport}
-            </span>
-            <span className="text-[10px] text-white/20 uppercase tracking-[0.14em]">{pick.bet_type || pick.betType}</span>
-            <span className="ml-auto text-[10px] font-bold text-blue-300/80 bg-blue-400/10 border border-blue-400/10 rounded-full px-2 py-0.5 uppercase tracking-[0.18em]">
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {rank && <span className="text-[10px] font-black text-white/18">#{rank}</span>}
+            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${sportStyle}`}>{pick.sport}</span>
+            <span className="text-[10px] text-white/24 uppercase tracking-[0.18em]">{betType}</span>
+            <span className="text-[10px] font-bold text-blue-200/80 bg-blue-400/10 border border-blue-400/10 rounded-full px-2.5 py-1 uppercase tracking-[0.18em]">
               Edge {edgeLabel}
             </span>
-            {pick.created_at && (
-              <span className="text-[9px] text-white/10">
-                {new Date(pick.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-              </span>
+            {isSettled && (
+              <span className="text-[10px] text-white/22 uppercase tracking-[0.18em]">Settled</span>
             )}
           </div>
-          <p className="text-white/28 text-[11px] mb-1 uppercase tracking-[0.18em] truncate">{pick.matchup}</p>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-white font-bold text-[17px] leading-none">{pick.pick}</span>
-            <span className="text-neon/80 text-sm font-bold">{pick.odds}</span>
-          </div>
-        </div>
 
-        {/* Right */}
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <CopyBtn pick={pickWithRank} />
-            <div className="text-right">
-              <div className={`text-xl font-black tabular leading-none ${confColor}`}>{conf}</div>
-              <div className="text-[9px] text-white/20 mt-0.5 uppercase tracking-[0.18em]">model</div>
+          <p className="text-white/30 text-[11px] uppercase tracking-[0.2em] truncate">{pick.matchup}</p>
+
+          <div className="mt-2 flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <div className="font-display text-white font-bold text-[1.45rem] sm:text-[1.6rem] leading-[1.02] tracking-[-0.04em]">
+                {pick.pick}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/28">
+                {lineValue && (
+                  <span className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1">
+                    Line {lineValue}
+                  </span>
+                )}
+                <span className="rounded-full border border-neon/16 bg-neon/[0.06] px-2.5 py-1 text-neon/85">
+                  {pick.odds}
+                </span>
+                {pick.created_at && (
+                  <span className="rounded-full border border-white/8 bg-white/[0.02] px-2.5 py-1">
+                    {new Date(pick.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-start gap-3">
+              <CopyBtn pick={pickWithRank} />
+              <div className="premium-panel rounded-[22px] px-3 py-3 min-w-[88px] text-right">
+                <div className={`font-display text-[1.95rem] font-bold tabular leading-none tracking-[-0.05em] ${confColor}`}>{conf}</div>
+                <div className="text-[9px] text-white/22 mt-1 uppercase tracking-[0.22em]">Model grade</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Confidence bar */}
-      <div className="mt-3 h-[3px] w-full bg-white/5 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${conf >= 85 ? 'bg-neon' : conf >= 70 ? 'bg-blue-400/80' : 'bg-white/20'}`}
-          style={{ width: `${conf}%` }} />
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="text-[10px] text-white/20 uppercase tracking-[0.2em]">
-          Grade Pick
+      <div className="mt-4">
+        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-white/22 mb-2">
+          <span>Edge strength</span>
+          <span className={confColor}>{conf >= 85 ? 'Top tier' : conf >= 78 ? 'Live' : 'Thin edge'}</span>
         </div>
-        <PickOutcomeControl result={pick.result} id={pick.id} onUpdate={onUpdateResult} compact />
+        <div className="h-[4px] w-full bg-white/5 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${conf >= 85 ? 'bg-gradient-to-r from-neon via-[#60ffbb] to-[#98ffd1]' : conf >= 78 ? 'bg-gradient-to-r from-blue-400 via-blue-300 to-neon/80' : 'bg-white/25'}`}
+            style={{ width: `${conf}%` }}
+          />
+        </div>
       </div>
 
-      {/* Sharp signals */}
       {signals.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {signals.map((s, i) => (
-            <span key={i} className="text-[10px] text-blue-200/85 bg-blue-400/10 border border-blue-400/10 rounded-full px-2 py-0.5 leading-relaxed">
+        <div className="mt-4 flex flex-wrap gap-2">
+          {signals.slice(0, 4).map((s, i) => (
+            <span key={i} className="text-[10px] text-white/72 bg-white/[0.04] border border-white/[0.07] rounded-full px-2.5 py-1 leading-relaxed">
               {s}
             </span>
           ))}
         </div>
       )}
 
-      {/* Toggle reasoning */}
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] text-white/22 uppercase tracking-[0.2em]">Result</div>
+          <div className="text-[11px] text-white/36 mt-1">{isSettled ? 'Booked on the record' : 'Settle the bet when it closes'}</div>
+        </div>
+        <PickOutcomeControl result={pick.result} id={pick.id} onUpdate={onUpdateResult} compact />
+      </div>
+
       {pick.reasoning && (
         <>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="mt-3 text-[10px] text-white/18 hover:text-neon/70 transition-colors flex items-center gap-1 uppercase tracking-[0.18em]"
+            className="mt-4 text-[10px] text-white/22 hover:text-neon/70 transition-colors flex items-center gap-1 uppercase tracking-[0.18em]"
           >
             <svg className={`w-2.5 h-2.5 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 24 24">
               <path d="M7 10l5 5 5-5z"/>
             </svg>
-            {expanded ? 'Hide' : 'Open Read'}
+            {expanded ? 'Hide analysis' : 'Why it made the card'}
           </button>
           {expanded && (
-            <div className="mt-2.5 text-xs text-white/35 leading-relaxed bg-black/20 rounded-xl p-4 border border-white/[0.04]">
+            <div className="mt-3 text-sm text-white/42 leading-relaxed bg-black/25 rounded-2xl p-4 border border-white/[0.05]">
               {pick.reasoning}
             </div>
           )}

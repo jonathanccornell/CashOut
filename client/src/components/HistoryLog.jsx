@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PickOutcomeControl from './PickOutcomeControl';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -39,12 +40,15 @@ export default function HistoryLog() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-white font-bold text-lg">Pick History</h2>
+        <div>
+          <h2 className="font-display text-white text-[2rem] font-bold tracking-[-0.04em] leading-none">Results Feed</h2>
+          <p className="text-white/24 text-[11px] uppercase tracking-[0.2em] mt-2">Every settled pick, in one running timeline</p>
+        </div>
         <a
           href={`${API_BASE}/api/record/export`}
           target="_blank"
           rel="noreferrer"
-          className="text-xs px-3 py-1.5 rounded-lg border border-black-border text-white/40 hover:text-white/70 hover:border-white/20 transition-colors"
+          className="text-xs px-3 py-1.5 rounded-full border border-white/10 text-white/40 hover:text-white/70 hover:border-white/20 transition-colors"
         >
           Export CSV
         </a>
@@ -52,46 +56,44 @@ export default function HistoryLog() {
 
       {Object.entries(groupedByDate).map(([date, datePicks]) => (
         <div key={date}>
-          <div className="text-[10px] text-white/25 uppercase tracking-widest mb-2 pl-1">
+          <div className="text-[10px] text-white/25 uppercase tracking-widest mb-3 pl-1">
             {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
-          <div className="bg-black-card border border-black-border rounded-2xl overflow-hidden">
+          <div className="premium-panel rounded-[26px] overflow-hidden border border-white/[0.06]">
             {datePicks.map((pick, idx) => (
-              <div key={pick.id} className={`flex items-center gap-3 px-4 py-3 ${idx !== datePicks.length - 1 ? 'border-b border-black-border' : ''}`}>
-                {/* Sport */}
-                <div className="w-14 shrink-0">
-                  <span className="text-[10px] font-bold text-neon">{pick.sport}</span>
-                  {pick.is_lock === 1 && <span className="ml-1 text-[10px] text-gold">★</span>}
-                </div>
-                {/* Matchup */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-white/30 text-[10px] truncate">{pick.matchup}</div>
-                  <div className="text-white text-xs font-semibold truncate">{pick.pick} <span className="text-white/30 font-normal">{pick.odds}</span></div>
-                </div>
-                {/* Confidence */}
-                <div className={`w-8 text-right text-xs font-bold tabular ${
-                  pick.confidence >= 85 ? 'text-neon' : pick.confidence >= 65 ? 'text-gold' : 'text-white/30'
-                }`}>
-                  {pick.confidence}
-                </div>
-                {/* Result */}
-                <div className="w-20 flex justify-end">
-                  {pick.result === 'Pending' ? (
-                    <div className="flex gap-1">
-                      <button onClick={() => updateResult(pick.id, 'W')}
-                        className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-neon/10 text-neon border border-neon/20 hover:bg-neon/20">W</button>
-                      <button onClick={() => updateResult(pick.id, 'L')}
-                        className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">L</button>
-                      <button onClick={() => updateResult(pick.id, 'Push')}
-                        className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20">P</button>
+              <div key={pick.id} className={`px-4 py-4 ${idx !== datePicks.length - 1 ? 'border-b border-white/[0.05]' : ''}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-16 shrink-0 pt-0.5">
+                    <div className="text-[10px] font-bold text-neon uppercase tracking-[0.16em]">{pick.sport}</div>
+                    {pick.is_lock === 1 && <div className="text-[10px] text-gold mt-1 uppercase tracking-[0.16em]">Lock</div>}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white/26 text-[10px] uppercase tracking-[0.16em] truncate">{pick.matchup}</div>
+                    <div className="mt-1 flex items-center gap-2 flex-wrap">
+                      <div className="font-display text-white text-[1.05rem] font-bold tracking-[-0.03em] truncate">
+                        {pick.pick}
+                      </div>
+                      <span className="rounded-full border border-neon/14 bg-neon/[0.06] px-2 py-0.5 text-[10px] font-bold text-neon/85 uppercase tracking-[0.14em]">
+                        {pick.odds}
+                      </span>
                     </div>
-                  ) : (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      pick.result === 'W' ? 'bg-neon/10 text-neon' :
-                      pick.result === 'L' ? 'bg-red-500/10 text-red-400' :
-                      'bg-gold/10 text-gold'
-                    }`}>{pick.result}</span>
-                  )}
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] font-bold ${pick.confidence >= 85 ? 'text-neon' : pick.confidence >= 65 ? 'text-gold' : 'text-white/30'}`}>
+                        {pick.confidence} model
+                      </span>
+                      <span className="text-white/12">•</span>
+                      <span className="text-[10px] text-white/22 uppercase tracking-[0.16em]">{pick.bet_type || pick.betType || 'Pick'}</span>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center">
+                    {pick.result === 'Pending' ? (
+                      <PickOutcomeControl result={pick.result} id={pick.id} onUpdate={updateResult} compact />
+                    ) : (
+                      <PickOutcomeControl result={pick.result} id={pick.id} onUpdate={updateResult} compact />
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

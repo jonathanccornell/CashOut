@@ -60,6 +60,7 @@ router.post('/generate', async (req, res) => {
         confidence: result.lock.confidence,
         reasoning: result.lock.reasoning,
         signals: result.lock.signals,
+        line: result.lock.line,
         isLock: true,
         units: result.lock.kelly_units || 1.0,
         kelly_units: result.lock.kelly_units || 1.0
@@ -78,6 +79,7 @@ router.post('/generate', async (req, res) => {
         confidence: pick.confidence,
         reasoning: pick.reasoning,
         signals: pick.signals,
+        line: pick.line,
         isLock: false,
         units: pick.kelly_units || 1.0,
         kelly_units: pick.kelly_units || 1.0

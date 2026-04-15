@@ -100,7 +100,7 @@ async function autoGeneratePicks() {
       insertPick({ date: today, sport: result.lock.sport || 'MULTI', matchup: result.lock.matchup,
         pick: result.lock.pick, betType: result.lock.betType, odds: result.lock.odds,
         confidence: result.lock.confidence, reasoning: result.lock.reasoning,
-        signals: result.lock.signals, isLock: true,
+        signals: result.lock.signals, line: result.lock.line, isLock: true,
         units: result.lock.kelly_units || 2.0,
         kelly_units: result.lock.kelly_units || 2.0 });
     }
@@ -108,7 +108,7 @@ async function autoGeneratePicks() {
       insertPick({ date: today, sport: pick.sport || 'MULTI', matchup: pick.matchup,
         pick: pick.pick, betType: pick.betType, odds: pick.odds,
         confidence: pick.confidence, reasoning: pick.reasoning,
-        signals: pick.signals, isLock: false,
+        signals: pick.signals, line: pick.line, isLock: false,
         units: pick.kelly_units || 1.0,
         kelly_units: pick.kelly_units || 1.0 });
     }

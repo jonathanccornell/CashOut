@@ -22,32 +22,75 @@ const TABS = [
 
 const SPORTS = ['ALL', 'NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'MLS'];
 
+function BoardTicker({ record, picks, lock, avgConfidence }) {
+  const items = [
+    `Live board`,
+    `${picks.length} active plays`,
+    lock ? `Lock ${lock.pick} ${lock.odds}` : 'No forced lock',
+    record ? `${record.picks.wins}-${record.picks.losses} tracked` : 'Record syncing',
+    record ? `${parseFloat(record.roi) >= 0 ? '+' : ''}${record.roi}% roi` : 'ROI tracking',
+    `${avgConfidence || 0} avg confidence`,
+    'Selective card only',
+    'Market-grade pricing',
+  ];
+
+  const doubled = [...items, ...items];
+
+  return (
+    <div className="premium-panel ticker-shell rounded-full px-2 py-2 border border-white/[0.06]">
+      <div className="ticker-track">
+        {doubled.map((item, idx) => (
+          <div key={`${item}-${idx}`} className="ticker-item">
+            <span className="status-dot text-neon" />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Hero ── */
 function HeroEmpty({ onGenerate, loading }) {
   return (
-    <div className="hero-mesh premium-panel gold-frame texture-grid market-grid relative overflow-hidden min-h-[calc(100vh-120px)] flex flex-col items-center justify-center rounded-[32px] px-6 py-12 text-center">
+    <div className="hero-mesh premium-panel gold-frame texture-grid market-grid relative overflow-hidden min-h-[calc(100vh-120px)] flex flex-col items-center justify-center rounded-[36px] px-6 py-12 text-center">
+      <div className="hero-float-card hidden lg:block left-6 top-8 rounded-[24px] px-4 py-3 text-left max-w-[180px]">
+        <div className="text-[9px] text-white/22 uppercase tracking-[0.18em]">Board Pulse</div>
+        <div className="font-display text-white text-2xl tracking-[-0.04em] mt-2">0 filler</div>
+        <div className="text-[11px] text-white/38 mt-1">Only real edges survive the cut.</div>
+      </div>
+      <div className="hero-float-card delay-2 hidden lg:block right-6 top-16 rounded-[24px] px-4 py-3 text-left max-w-[190px]">
+        <div className="text-[9px] text-white/22 uppercase tracking-[0.18em]">Habit Loop</div>
+        <div className="font-display text-neon text-2xl tracking-[-0.04em] mt-2">Live results</div>
+        <div className="text-[11px] text-white/38 mt-1">Every pick settles into the record in real time.</div>
+      </div>
+      <div className="hero-float-card delay-3 hidden lg:block left-12 bottom-10 rounded-[24px] px-4 py-3 text-left max-w-[190px]">
+        <div className="text-[9px] text-white/22 uppercase tracking-[0.18em]">Feel</div>
+        <div className="font-display text-blue-300 text-2xl tracking-[-0.04em] mt-2">Trading app</div>
+        <div className="text-[11px] text-white/38 mt-1">Fintech clarity, not casino chaos.</div>
+      </div>
       <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-neon/60 to-transparent" />
       <div className="inline-flex items-center gap-2 bg-neon/8 border border-neon/18 rounded-full px-4 py-1.5 mb-7 backdrop-blur">
         <span className="status-dot text-neon" />
-        <span className="text-neon text-[11px] font-black uppercase tracking-[0.22em]">AI Market Scanner</span>
+        <span className="text-neon text-[11px] font-black uppercase tracking-[0.22em]">Market Grade Betting AI</span>
       </div>
 
       <div className="section-label mb-4">Modern Betting Intelligence</div>
-      <h1 className="font-display text-[clamp(2.8rem,9vw,5rem)] font-bold text-white leading-[0.94] mb-5 max-w-2xl tracking-[-0.04em]">
-        Smarter picks for a
+      <h1 className="font-display text-[clamp(3rem,9vw,5.35rem)] font-bold text-white leading-[0.92] mb-5 max-w-2xl tracking-[-0.05em]">
+        The Robinhood of
         <br />
-        <span className="text-neon">real betting app</span>
+        <span className="text-neon">sports betting</span>
       </h1>
 
       <p className="text-white/44 text-sm sm:text-base leading-relaxed mb-2 max-w-xl">
-        CashOut reads the board like a tech product should: live market context, sharper filters, and a card that feels built around edge instead of filler.
+        CashOut is built like a premium finance product for bettors: clean market reads, selective cards, and a running performance layer that makes every result feel live.
       </p>
       <p className="text-white/20 text-xs mb-8 max-w-sm uppercase tracking-[0.26em]">
-        Sharp reads. Clean execution. No dead weight.
+        Price discipline. Sharp reads. No forced action.
       </p>
 
       <div className="grid grid-cols-3 gap-3 mb-9 w-full max-w-xl">
-        {[['7','Markets'],['15+','Signals'],['A-Card only','Weak slates cut']].map(([v,l]) => (
+        {[['0 filler','Only edge'],['Live record','Tracked'],['Fast scan','Daily']].map(([v,l]) => (
           <div key={l} className="premium-panel rounded-2xl px-3 py-4">
             <div className="text-neon font-display font-bold text-2xl leading-none">{v}</div>
             <div className="text-white/25 text-[10px] uppercase tracking-[0.18em] mt-2">{l}</div>
@@ -63,11 +106,11 @@ function HeroEmpty({ onGenerate, loading }) {
         {loading ? (
           <><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"/>Cash is analyzing...</>
         ) : (
-          <><span>↗</span>Launch Today&apos;s Card</>
+          <><span>↗</span>Open Today&apos;s Board</>
         )}
       </button>
 
-      <p className="text-white/15 text-[10px] mt-4 uppercase tracking-[0.28em]">70+ model threshold</p>
+      <p className="text-white/15 text-[10px] mt-4 uppercase tracking-[0.28em]">70+ confidence threshold</p>
     </div>
   );
 }
@@ -183,9 +226,11 @@ export default function App() {
   const filteredPicks = sportFilter === 'ALL' ? nonLockPicks : nonLockPicks.filter(p => p.sport === sportFilter);
   const activeSports = [...new Set(picks.map(p => p.sport))];
   const hasPicks = picks.length > 0;
+  const avgConfidence = picks.length ? Math.round(picks.reduce((sum, p) => sum + (Number(p.confidence) || 0), 0) / picks.length) : 0;
+  const settledCount = picks.filter(p => p.result && p.result !== 'Pending').length;
 
   return (
-    <div className="min-h-screen bg-[#080808] text-white font-sans">
+    <div className="app-shell min-h-screen bg-[#080808] text-white font-sans">
 
       {/* ── TOP HEADER ── */}
       <header className="sticky top-0 z-40 bg-[#080808]/86 backdrop-blur-2xl border-b border-white/[0.05]">
@@ -198,8 +243,8 @@ export default function App() {
                 <div id="lf" className="w-7 h-7 rounded-xl bg-neon items-center justify-center font-black text-black text-lg hidden">$</div>
               </div>
               <div>
-                <div className="font-display text-white text-[1.65rem] font-bold leading-none tracking-[-0.04em]">CashOut</div>
-                <div className="text-[8px] text-blue-300/60 uppercase tracking-[0.28em] font-bold leading-none mt-0.5">Sports Betting AI</div>
+                <div className="font-display text-white text-[1.65rem] font-bold leading-none tracking-[-0.05em]">CashOut</div>
+                <div className="text-[8px] text-blue-300/60 uppercase tracking-[0.24em] font-bold leading-none mt-0.5">Market-Grade Sports Betting</div>
               </div>
             </div>
 
@@ -255,6 +300,11 @@ export default function App() {
 
       {/* ── MAIN ── */}
       <main className="max-w-2xl mx-auto px-4 py-5 pb-28 sm:pb-10">
+        {hasPicks && !loading && (
+          <div className="mb-4">
+            <BoardTicker record={record} picks={picks} lock={lock} avgConfidence={avgConfidence} />
+          </div>
+        )}
 
         {!serverOnline && (
           <div className="mb-5 p-4 bg-red-500/5 border border-red-500/15 rounded-2xl flex items-center gap-3">
@@ -275,17 +325,46 @@ export default function App() {
         {/* TODAY'S PICKS */}
         {tab === 'picks' && !loading && hasPicks && (
           <div className="space-y-4">
-            <div className="premium-panel gold-frame market-grid rounded-[28px] px-5 py-5">
-              <div className="flex items-center justify-between">
+            <div className="premium-panel gold-frame market-grid rounded-[28px] px-5 py-5 panel-hover">
+              <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="section-label mb-2">Today&apos;s Card</div>
-                  <h2 className="font-display text-white text-[2.2rem] font-bold leading-none tracking-[-0.04em]">Best Bets</h2>
-                  <p className="text-white/22 text-[11px] mt-2 uppercase tracking-[0.2em]">Scanned markets · filtered edges</p>
+                  <h2 className="font-display text-white text-[2.35rem] font-bold leading-none tracking-[-0.05em]">Live Board</h2>
+                  <p className="text-white/22 text-[11px] mt-2 uppercase tracking-[0.2em]">Selective card • tracked results • sharp pricing only</p>
                 </div>
                 <button onClick={() => generatePicks(true)}
                   className="active-press text-[11px] px-3 py-1.5 border border-white/[0.07] text-white/25 rounded-full hover:border-neon/25 hover:text-neon transition-all">
                   Refresh Card
                 </button>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mt-5">
+                <div className="premium-panel metric-glow rounded-2xl px-4 py-3">
+                  <div className="text-[9px] text-white/18 uppercase tracking-[0.22em]">Tracked plays</div>
+                  <div className="font-display text-white text-2xl leading-none tracking-[-0.04em] mt-2">{picks.length}</div>
+                </div>
+                <div className="premium-panel metric-glow rounded-2xl px-4 py-3">
+                  <div className="text-[9px] text-white/18 uppercase tracking-[0.22em]">Avg confidence</div>
+                  <div className="font-display text-neon text-2xl leading-none tracking-[-0.04em] mt-2">{avgConfidence}</div>
+                </div>
+                <div className="premium-panel metric-glow rounded-2xl px-4 py-3">
+                  <div className="text-[9px] text-white/18 uppercase tracking-[0.22em]">Board pulse</div>
+                  <div className="font-display text-white text-2xl leading-none tracking-[-0.04em] mt-2">{settledCount}</div>
+                  <div className="text-[10px] text-white/24 mt-1">settled today</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                <div className="premium-panel rounded-2xl px-4 py-3">
+                  <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Card posture</div>
+                  <div className="text-sm text-white/78 mt-2">Selective, confidence-weighted, no volume for volume&apos;s sake.</div>
+                </div>
+                <div className="premium-panel rounded-2xl px-4 py-3">
+                  <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Result loop</div>
+                  <div className="text-sm text-white/78 mt-2">Each grade feeds the record, history, and lock accountability.</div>
+                </div>
+                <div className="premium-panel rounded-2xl px-4 py-3">
+                  <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Why it feels live</div>
+                  <div className="text-sm text-white/78 mt-2">Odds, edge grade, and result state all read in a single glance.</div>
+                </div>
               </div>
               <div className="lux-divider mt-5" />
             </div>
@@ -296,7 +375,7 @@ export default function App() {
             <div className="flex items-center justify-between px-1">
               <div>
                 <h3 className="text-white font-semibold text-sm leading-none">Board filter</h3>
-                <p className="text-white/20 text-[10px] mt-1 uppercase tracking-[0.18em]">Filter the board by sport</p>
+                <p className="text-white/20 text-[10px] mt-1 uppercase tracking-[0.18em]">Slice the card by active sport</p>
               </div>
             </div>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
@@ -330,9 +409,9 @@ export default function App() {
             {/* Bottom strip */}
             <div className="pt-5 border-t border-white/[0.04]">
               <div className="flex flex-wrap items-center justify-center gap-4 text-[9px] text-white/12 uppercase tracking-widest">
-                <span>♛ Syndicate Grade</span>
-                <span>·</span><span>Sharp money signals only</span>
-                <span>·</span><span>70+ confidence minimum</span>
+                <span>♛ CashOut Board</span>
+                <span>·</span><span>Market-sensitive picks</span>
+                <span>·</span><span>Result tracking built in</span>
               </div>
             </div>
           </div>
