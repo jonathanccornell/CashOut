@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTimeRecord, getHistory, getAllPicksForExport } = require('../db');
+const { getAllTimeRecord, getHistory, getAllPicksForExport, resetAllRecords } = require('../db');
 
 // GET /api/record
 router.get('/', (req, res) => {
@@ -38,6 +38,24 @@ router.get('/export', (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename=cashout-picks-${new Date().toISOString().split('T')[0]}.csv`);
   res.send(csv);
+});
+
+// POST /api/record/reset
+router.post('/reset', (req, res) => {
+  const resetKey = process.env.RESET_RECORD_KEY;
+  const providedKey = req.body?.resetKey;
+  const confirm = req.body?.confirm;
+
+  const authorized = resetKey
+    ? providedKey === resetKey
+    : confirm === 'RESET_CASHOUT_RECORD';
+
+  if (!authorized) {
+    return res.status(403).json({ error: 'Reset not authorized' });
+  }
+
+  resetAllRecords();
+  res.json({ message: 'Record reset complete' });
 });
 
 module.exports = router;

@@ -100,7 +100,13 @@ export default function HistoryLog() {
       ))}
 
       {history.picks.length === 0 && (
-        <div className="text-center py-16 text-white/20 text-sm">No picks recorded yet.</div>
+        <div className="premium-panel gold-frame market-grid rounded-[28px] px-6 py-12 text-center">
+          <div className="section-label mb-3">History</div>
+          <h3 className="font-display text-white text-[2rem] font-bold tracking-[-0.04em]">No settled picks yet</h3>
+          <p className="text-white/35 text-sm leading-relaxed mt-3 max-w-lg mx-auto">
+            The slate has been reset. As new cards are graded, this screen will become the running timeline of every bet, result, and closing performance snapshot.
+          </p>
+        </div>
       )}
 
       {history.totalPages > 1 && (

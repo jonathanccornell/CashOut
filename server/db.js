@@ -344,6 +344,34 @@ function getAllPicksForExport() {
   return db.prepare('SELECT date, sport, matchup, pick, bet_type, odds, confidence, is_lock, result, units, reasoning FROM picks ORDER BY date DESC, id DESC').all();
 }
 
+function resetAllRecords() {
+  const reset = db.transaction(() => {
+    db.prepare('DELETE FROM picks').run();
+    db.prepare('DELETE FROM parlays').run();
+    db.prepare('DELETE FROM signal_performance').run();
+    db.prepare('DELETE FROM situational_patterns').run();
+    db.prepare('DELETE FROM official_tendencies').run();
+    db.prepare('DELETE FROM model_learnings').run();
+    db.prepare('DELETE FROM learning_runs').run();
+    db.prepare('DELETE FROM daily_analysis').run();
+    db.prepare(`
+      DELETE FROM sqlite_sequence
+      WHERE name IN (
+        'picks',
+        'parlays',
+        'signal_performance',
+        'situational_patterns',
+        'official_tendencies',
+        'model_learnings',
+        'learning_runs',
+        'daily_analysis'
+      )
+    `).run();
+  });
+
+  reset();
+}
+
 function getSignalPerformance() {
   return db.prepare('SELECT * FROM signal_performance ORDER BY appearances DESC').all();
 }
@@ -380,6 +408,7 @@ module.exports = {
   getAllTimeRecord,
   getHistory,
   getAllPicksForExport,
+  resetAllRecords,
   getSignalPerformance,
   getCLVStats
 };

@@ -26,6 +26,50 @@ export default function RecordDashboard({ record }) {
 
   const { picks, locks, parlays, roi, streak, bySport = [] } = record;
   const roiPositive = parseFloat(roi) >= 0;
+  const freshStart = picks.total === 0 && parlays.total === 0;
+
+  if (freshStart) {
+    return (
+      <div className="space-y-6">
+        <div className="premium-panel gold-frame market-grid rounded-[28px] px-6 py-7">
+          <div className="section-label mb-3">Fresh Start</div>
+          <h2 className="font-display text-white text-[2.15rem] font-bold tracking-[-0.04em] leading-none">
+            New tracking season
+          </h2>
+          <p className="text-white/40 text-sm leading-relaxed mt-3 max-w-xl">
+            The historical card has been cleared. New picks will build a clean record from this point forward, and the dashboard will populate as graded results come in.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+            {[
+              ['0-0', 'W-L'],
+              ['0.0%', 'Win Rate'],
+              ['0.0%', 'ROI'],
+              ['0', 'Pending']
+            ].map(([value, label]) => (
+              <div key={label} className="premium-panel rounded-2xl p-4">
+                <div className="text-[9px] text-white/20 uppercase tracking-[0.22em] mb-2">{label}</div>
+                <div className="text-2xl font-black text-white tabular">{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            ['Results Timeline', 'Every graded pick will land here with sport, edge, and result context.'],
+            ['Sport Breakdown', 'As volume builds, the board will separate what actually performs by market.'],
+            ['Lock Tracking', 'Lock ROI and streaks will stay isolated so the flagship play is judged honestly.']
+          ].map(([title, copy]) => (
+            <div key={title} className="premium-panel rounded-2xl p-5">
+              <div className="text-sm font-bold text-white">{title}</div>
+              <p className="text-xs text-white/32 leading-relaxed mt-2">{copy}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -34,24 +78,24 @@ export default function RecordDashboard({ record }) {
       <div>
         <h2 className="text-white font-bold text-lg mb-4">All-Time Record</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+          <div className="premium-panel rounded-2xl p-5">
             <div className="text-[9px] text-white/25 uppercase tracking-widest mb-2">Overall</div>
             <div className="text-3xl font-black text-white tabular">{picks.wins}-{picks.losses}</div>
             <div className="text-neon text-xs font-semibold mt-1">{picks.winRate}% win rate</div>
           </div>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+          <div className="premium-panel rounded-2xl p-5">
             <div className="text-[9px] text-white/25 uppercase tracking-widest mb-2">ROI</div>
             <div className={`text-3xl font-black tabular ${roiPositive ? 'text-neon' : 'text-red-400'}`}>
               {roiPositive ? '+' : ''}{roi}%
             </div>
-            <div className="text-white/20 text-xs mt-1">flat unit</div>
+            <div className="text-white/20 text-xs mt-1">tracked units</div>
           </div>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+          <div className="premium-panel rounded-2xl p-5">
             <div className="text-[9px] text-white/25 uppercase tracking-widest mb-2">Streak</div>
             <div className="text-3xl font-black text-gold tabular">{streak}</div>
             <div className="text-white/20 text-xs mt-1">current run</div>
           </div>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+          <div className="premium-panel rounded-2xl p-5">
             <div className="text-[9px] text-white/25 uppercase tracking-widest mb-2">Pending</div>
             <div className="text-3xl font-black text-white/30 tabular">{picks.pending}</div>
             <div className="text-white/20 text-xs mt-1">awaiting results</div>
@@ -67,7 +111,7 @@ export default function RecordDashboard({ record }) {
         </div>
 
         {bySport.length === 0 ? (
-          <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-8 text-center text-white/20 text-sm">
+          <div className="premium-panel rounded-2xl p-8 text-center text-white/20 text-sm">
             Records will appear here as picks are graded.
           </div>
         ) : (
@@ -77,7 +121,7 @@ export default function RecordDashboard({ record }) {
               const decided = s.wins + s.losses;
               const roiPos = parseFloat(s.roi) >= 0;
               return (
-                <div key={s.sport} className={`bg-white/[0.025] border rounded-2xl px-5 py-4 ${style.border}`}>
+                <div key={s.sport} className={`premium-panel border rounded-2xl px-5 py-4 ${style.border}`}>
                   <div className="flex items-center gap-4">
                     {/* Sport label */}
                     <div className={`w-16 shrink-0 text-xs font-black ${style.color}`}>{s.sport}</div>
@@ -128,7 +172,7 @@ export default function RecordDashboard({ record }) {
 
       {/* ── Lock & Parlay Records ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white/[0.025] border border-neon/15 rounded-2xl p-5">
+        <div className="premium-panel border border-neon/15 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-gold">♛</span>
             <span className="text-[10px] font-black text-gold uppercase tracking-widest">Lock of the Day</span>
@@ -180,7 +224,7 @@ export default function RecordDashboard({ record }) {
           </div>
         </div>
 
-        <div className="bg-white/[0.025] border border-white/[0.06] rounded-2xl p-5">
+        <div className="premium-panel border border-white/[0.06] rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Parlays</span>
           </div>
