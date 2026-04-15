@@ -52,6 +52,7 @@ try { db.exec('ALTER TABLE picks ADD COLUMN closing_line TEXT DEFAULT NULL'); } 
 try { db.exec('ALTER TABLE picks ADD COLUMN clv REAL DEFAULT NULL'); } catch {}
 try { db.exec('ALTER TABLE picks ADD COLUMN kelly_units REAL DEFAULT 1.0'); } catch {}
 try { db.exec('ALTER TABLE picks ADD COLUMN situations TEXT DEFAULT "[]"'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN line TEXT DEFAULT NULL'); } catch {}
 
 // Signal performance tracking
 try {
@@ -95,6 +96,53 @@ function getTodayDate() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+function extractBetLine(pickText, betType) {
+  const text = String(pickText || '');
+
+  if (betType === 'spread') {
+    const matches = [...text.matchAll(/([+-]\d+(?:\.\d+)?)/g)];
+    return matches.length > 0 ? matches[matches.length - 1][1] : null;
+  }
+
+  if (betType === 'total' || betType === 'prop') {
+    const ouMatch = text.match(/\b(?:over|under)\s+(\d+(?:\.\d+)?)/i);
+    if (ouMatch) return ouMatch[1];
+
+    const matches = [...text.matchAll(/(\d+(?:\.\d+)?)/g)];
+    return matches.length > 0 ? matches[0][1] : null;
+  }
+
+  return null;
+}
+
+function parseAmericanOdds(odds) {
+  const parsed = parseFloat(String(odds || '').replace(/[^0-9+.\-]/g, ''));
+  return Number.isFinite(parsed) && parsed !== 0 ? parsed : null;
+}
+
+function getPickProfit(pick) {
+  const units = Number(pick.units) || 1;
+
+  if (pick.result === 'Push') return 0;
+  if (pick.result !== 'W' && pick.result !== 'L') return 0;
+  if (pick.result === 'L') return -units;
+
+  const american = parseAmericanOdds(pick.odds);
+  if (!american) return 0;
+
+  return american < 0
+    ? units * (100 / Math.abs(american))
+    : units * (american / 100);
+}
+
+try {
+  const backfill = db.prepare('SELECT id, pick, bet_type FROM picks WHERE line IS NULL');
+  const update = db.prepare('UPDATE picks SET line = ? WHERE id = ?');
+  for (const row of backfill.all()) {
+    update.run(extractBetLine(row.pick, row.bet_type), row.id);
+  }
+} catch {}
+
 // Picks
 function getTodayPicks() {
   return db.prepare('SELECT * FROM picks WHERE date = ? ORDER BY is_lock DESC, confidence DESC').all(getTodayDate());
@@ -110,15 +158,16 @@ function getPicksByDate(date) {
 
 function insertPick(pick) {
   const stmt = db.prepare(`
-    INSERT INTO picks (date, sport, matchup, pick, bet_type, odds, confidence, reasoning, is_lock, units, signals, kelly_units, situations)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO picks (date, sport, matchup, pick, bet_type, odds, confidence, reasoning, is_lock, units, signals, kelly_units, situations, line)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  const betType = pick.betType || pick.bet_type;
   return stmt.run(
     pick.date || getTodayDate(),
     pick.sport,
     pick.matchup,
     pick.pick,
-    pick.betType || pick.bet_type,
+    betType,
     pick.odds,
     pick.confidence,
     pick.reasoning || '',
@@ -126,7 +175,8 @@ function insertPick(pick) {
     pick.units || 1.0,
     JSON.stringify(Array.isArray(pick.signals) ? pick.signals : []),
     pick.kelly_units || 1.0,
-    JSON.stringify([])
+    JSON.stringify([]),
+    pick.line || extractBetLine(pick.pick, betType)
   );
 }
 
@@ -172,6 +222,12 @@ function updateParlayResult(id, result) {
 
 // Record & Stats
 function getAllTimeRecord() {
+  const decidedRows = db.prepare(`
+    SELECT sport, odds, units, result, is_lock
+    FROM picks
+    WHERE result IN ('W', 'L', 'Push')
+  `).all();
+
   const picks = db.prepare(`
     SELECT
       COUNT(*) as total,
@@ -200,9 +256,9 @@ function getAllTimeRecord() {
     FROM parlays
   `).get();
 
-  // Calculate ROI (assuming flat 1 unit bets, -110 standard)
-  const decided = picks.wins + picks.losses;
-  const roi = decided > 0 ? (((picks.wins * 0.91 - picks.losses) / decided) * 100).toFixed(1) : '0.0';
+  const totalRisk = decidedRows.reduce((sum, pick) => sum + (Number(pick.units) || 1), 0);
+  const totalProfit = decidedRows.reduce((sum, pick) => sum + getPickProfit(pick), 0);
+  const roi = totalRisk > 0 ? ((totalProfit / totalRisk) * 100).toFixed(1) : '0.0';
 
   // Current streak (all picks)
   const recentPicks = db.prepare(
@@ -242,6 +298,9 @@ function getAllTimeRecord() {
   `).all();
 
   const bySport = sportRows.map(row => {
+    const sportRowsDecided = decidedRows.filter(p => p.sport === row.sport);
+    const sportRisk = sportRowsDecided.reduce((sum, pick) => sum + (Number(pick.units) || 1), 0);
+    const sportProfit = sportRowsDecided.reduce((sum, pick) => sum + getPickProfit(pick), 0);
     const decided = row.wins + row.losses;
     return {
       sport: row.sport,
@@ -251,13 +310,22 @@ function getAllTimeRecord() {
       pushes: row.pushes,
       pending: row.pending,
       winRate: decided > 0 ? ((row.wins / decided) * 100).toFixed(1) : '0.0',
-      roi: decided > 0 ? (((row.wins * 0.91 - row.losses) / decided) * 100).toFixed(1) : '0.0'
+      roi: sportRisk > 0 ? ((sportProfit / sportRisk) * 100).toFixed(1) : '0.0'
     };
   });
 
+  const lockRows = decidedRows.filter(row => row.is_lock === 1);
+  const lockRisk = lockRows.reduce((sum, pick) => sum + (Number(pick.units) || 1), 0);
+  const lockProfit = lockRows.reduce((sum, pick) => sum + getPickProfit(pick), 0);
+  const decided = picks.wins + picks.losses;
+
   return {
     picks: { ...picks, winRate: decided > 0 ? ((picks.wins / decided) * 100).toFixed(1) : '0.0' },
-    locks: { ...locks, streak: lockStreak > 0 ? `${lockStreak}${lockStreakType}` : null },
+    locks: {
+      ...locks,
+      streak: lockStreak > 0 ? `${lockStreak}${lockStreakType}` : null,
+      roi: lockRisk > 0 ? ((lockProfit / lockRisk) * 100).toFixed(1) : '0.0'
+    },
     parlays,
     roi,
     streak: streak > 0 ? `${streak}${streakType}` : '0-0',

@@ -349,9 +349,9 @@ function getCurrentLearnings() {
 // Run post-game analysis on yesterday's graded picks
 async function runDailyPostGameAnalysis() {
   // Get yesterday's date
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yDate = yesterday.toISOString().slice(0, 10);
+  const yDate = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', {
+    timeZone: 'America/New_York'
+  });
 
   // Check if we already ran for this date
   const existing = db.prepare('SELECT id FROM daily_analysis WHERE date = ? LIMIT 1').get(yDate);
@@ -535,30 +535,23 @@ function updateSignalPerformance(pick, result, clv) {
 function calculateCLV(pick, closingLine) {
   if (!closingLine) return null;
   try {
-    const openingOdds = pick.odds || '';
+    const openingLine = pick.line || pick.odds || '';
     const betType = pick.bet_type || '';
     const pickText = (pick.pick || '').toLowerCase();
 
-    if (betType === 'spread' || betType === 'total') {
-      const openNum = parseFloat(openingOdds.replace(/[^0-9.\-]/g, '')) || null;
+    if (betType === 'spread' || betType === 'total' || betType === 'prop') {
+      const openNum = parseFloat(String(openingLine).replace(/[^0-9.\-]/g, '')) || null;
       const closeNum = parseFloat(closingLine.replace(/[^0-9.\-]/g, '')) || null;
       if (openNum === null || closeNum === null) return null;
 
       if (betType === 'spread') {
-        // If we took the favorite (-3), and it closed at -5, CLV = +2 (we got a better number)
-        // If we took the dog (+3), and it closed at +1, CLV = -2 (market moved against us)
-        const isFavorite = openNum < 0 || pickText.includes('-');
-        if (isFavorite) {
-          return closeNum - openNum; // negative closer = better for fade → closing more negative = more of a fav = we got better # taking dog
-        } else {
-          return openNum - closeNum; // taking dog: higher opening # vs lower closing # = we got better number
-        }
-      } else if (betType === 'total') {
+        return openNum - closeNum;
+      } else if (betType === 'total' || betType === 'prop') {
         const isOver = pickText.includes('over');
         if (isOver) {
-          return openNum - closeNum; // took over at 45.5, closes at 47.5 → CLV = -2 (market moved against)
+          return closeNum - openNum;
         } else {
-          return closeNum - openNum; // took under at 45.5, closes at 43.5 → CLV = +2 (market confirmed)
+          return openNum - closeNum;
         }
       }
     } else if (betType === 'moneyline') {
@@ -568,7 +561,7 @@ function calculateCLV(pick, closingLine) {
         if (!n) return null;
         return n < 0 ? Math.abs(n) / (Math.abs(n) + 100) : 100 / (n + 100);
       };
-      const openProb = toImplied(openingOdds);
+      const openProb = toImplied(openingLine);
       const closeProb = toImplied(closingLine);
       if (!openProb || !closeProb) return null;
       // If we bet a team: getting them at lower implied prob = better value

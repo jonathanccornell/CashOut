@@ -155,15 +155,13 @@ export default function RecordDashboard({ record }) {
             <div className="h-8 w-px bg-white/5" />
             <div>
               {(() => {
-                const decided = locks.wins + locks.losses;
-                const lockRoi = decided > 0
-                  ? (((locks.wins * 0.91 - locks.losses) / decided) * 100).toFixed(1)
-                  : null;
-                const pos = lockRoi && parseFloat(lockRoi) >= 0;
+                const lockRoi = locks.roi;
+                const hasLockRoi = lockRoi !== undefined && lockRoi !== null;
+                const pos = hasLockRoi && parseFloat(lockRoi) >= 0;
                 return (
                   <>
-                    <div className={`text-2xl font-black tabular ${lockRoi ? (pos ? 'text-neon' : 'text-red-400') : 'text-white/20'}`}>
-                      {lockRoi ? `${pos ? '+' : ''}${lockRoi}%` : '—'}
+                    <div className={`text-2xl font-black tabular ${hasLockRoi ? (pos ? 'text-neon' : 'text-red-400') : 'text-white/20'}`}>
+                      {hasLockRoi ? `${pos ? '+' : ''}${lockRoi}%` : '—'}
                     </div>
                     <div className="text-[10px] text-white/20 mt-0.5">lock ROI</div>
                   </>

@@ -23,7 +23,8 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: ['Manrope', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        display: ['Cormorant Garamond', 'Georgia', 'serif'],
       },
       boxShadow: {
         neon: '0 0 20px rgba(0, 255, 133, 0.25), 0 0 40px rgba(0, 255, 133, 0.1)',

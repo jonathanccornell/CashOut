@@ -28,9 +28,9 @@ export default function LockOfDay({ lock, onUpdateResult }) {
   const confPct = Math.min(100, Math.max(0, lock.confidence));
 
   return (
-    <div className="mb-4 relative rounded-2xl overflow-hidden border border-neon/20 neon-pulse">
-      <div className="absolute inset-0 bg-gradient-to-br from-neon/[0.07] via-transparent to-transparent" />
-      <div className="absolute inset-0 bg-black/70" />
+    <div className="mb-4 premium-panel gold-frame texture-grid relative rounded-[28px] overflow-hidden neon-pulse">
+      <div className="absolute inset-0 bg-gradient-to-br from-gold/[0.14] via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-black/72" />
 
       <div className="relative px-6 py-5">
         {/* Top row */}
@@ -38,7 +38,7 @@ export default function LockOfDay({ lock, onUpdateResult }) {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-gold text-base">♛</span>
-              <span className="text-[10px] font-black text-gold uppercase tracking-[0.25em]">Lock of the Day</span>
+              <span className="text-[10px] font-black text-gold uppercase tracking-[0.3em]">Lock of the Day</span>
               <span className="text-[10px] font-bold text-white/20">· Best Bet #1</span>
             </div>
             <div className="flex items-center gap-2">
@@ -59,7 +59,7 @@ export default function LockOfDay({ lock, onUpdateResult }) {
           <div className="flex items-center gap-3">
             {/* Copy button */}
             <button onClick={handleCopy} title="Copy pick"
-              className="text-white/15 hover:text-neon/50 transition-colors">
+              className="text-white/15 hover:text-gold/80 transition-colors">
               {copied
                 ? <span className="text-[10px] text-neon font-bold">Copied!</span>
                 : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -104,18 +104,18 @@ export default function LockOfDay({ lock, onUpdateResult }) {
         </div>
 
         {/* Matchup + Pick */}
-        <p className="text-white/40 text-sm mb-2">{lock.matchup}</p>
+        <p className="text-white/35 text-[11px] uppercase tracking-[0.18em] mb-2">{lock.matchup}</p>
         <div className="flex items-baseline gap-3 mb-4">
-          <span className="text-neon font-black text-3xl tracking-tight leading-none">{lock.pick}</span>
-          <span className="text-white/25 text-xl">{lock.odds}</span>
+          <span className="font-display text-white font-semibold text-[2.5rem] tracking-tight leading-none">{lock.pick}</span>
+          <span className="text-gold/80 text-xl">{lock.odds}</span>
         </div>
 
         {/* Sharp signals */}
         {signals.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             {signals.map((s, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-[11px] text-neon/60 bg-neon/5 border border-neon/10 rounded-lg px-2.5 py-1">
-                <div className="w-1 h-1 rounded-full bg-neon/50 shrink-0" />
+              <div key={i} className="flex items-center gap-1.5 text-[11px] text-gold/80 bg-gold/10 border border-gold/15 rounded-lg px-2.5 py-1">
+                <div className="w-1 h-1 rounded-full bg-gold/70 shrink-0" />
                 {s}
               </div>
             ))}
@@ -126,7 +126,7 @@ export default function LockOfDay({ lock, onUpdateResult }) {
           <>
             <button
               onClick={() => setExpanded(!expanded)}
-              className="text-[10px] text-white/15 hover:text-neon/50 transition-colors flex items-center gap-1"
+              className="text-[10px] text-white/15 hover:text-gold/80 transition-colors flex items-center gap-1"
             >
               <svg className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M7 10l5 5 5-5z"/>

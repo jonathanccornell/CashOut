@@ -25,51 +25,50 @@ const SPORTS = ['ALL', 'NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'MLS'];
 /* ── Hero ── */
 function HeroEmpty({ onGenerate, loading }) {
   return (
-    <div className="hero-mesh min-h-[calc(100vh-120px)] flex flex-col items-center justify-center px-6 py-10 text-center">
-      {/* Crown pill */}
+    <div className="hero-mesh premium-panel gold-frame texture-grid relative overflow-hidden min-h-[calc(100vh-120px)] flex flex-col items-center justify-center rounded-[32px] px-6 py-12 text-center">
+      <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
       <div className="inline-flex items-center gap-2 bg-gold/10 border border-gold/25 rounded-full px-4 py-1.5 mb-7 backdrop-blur">
         <span className="text-gold">♛</span>
-        <span className="text-gold text-[11px] font-black uppercase tracking-[0.2em]">King of Cappers</span>
+        <span className="text-gold text-[11px] font-black uppercase tracking-[0.2em]">Private Betting Desk</span>
         <span className="text-gold">♛</span>
       </div>
 
-      <h1 className="text-[clamp(2.4rem,8vw,4rem)] font-black text-white leading-[1.02] mb-5 max-w-lg tracking-tight">
-        The World's Most<br/>
-        <span className="text-neon drop-shadow-[0_0_20px_rgba(0,255,133,0.4)]">Accurate</span> Sports Picks.
+      <div className="section-label mb-4">Sharper Card. Higher Standard.</div>
+      <h1 className="font-display text-[clamp(3.2rem,9vw,5.6rem)] font-semibold text-white leading-[0.9] mb-5 max-w-2xl tracking-tight">
+        Elite reads for
+        <br />
+        <span className="text-gold">selective bettors</span>
       </h1>
 
-      <p className="text-white/40 text-sm sm:text-base leading-relaxed mb-2 max-w-sm">
-        Cash scans every line, injury report, and sharp money signal.
-        Only calls games he's <span className="text-white/70 font-semibold">genuinely confident in</span>.
+      <p className="text-white/40 text-sm sm:text-base leading-relaxed mb-2 max-w-lg">
+        Cash scans market movement, injury news, and situational edges, then filters the slate down to only the bets worth defending.
       </p>
-      <p className="text-white/20 text-xs mb-8 max-w-xs">
-        No filler. No guesses. Pure edge.
+      <p className="text-white/20 text-xs mb-8 max-w-sm uppercase tracking-[0.26em]">
+        No spray. No hype. Just edge.
       </p>
 
-      {/* Stats */}
-      <div className="flex gap-8 mb-9">
-        {[['7','Sports'],['15+','Sharp Signals'],['20+','Data Sources']].map(([v,l]) => (
-          <div key={l} className="text-center">
-            <div className="text-neon font-black text-2xl tabular drop-shadow-[0_0_8px_rgba(0,255,133,0.3)]">{v}</div>
-            <div className="text-white/20 text-[9px] uppercase tracking-wider mt-0.5">{l}</div>
+      <div className="grid grid-cols-3 gap-3 mb-9 w-full max-w-xl">
+        {[['7','Markets tracked'],['15+','Signals checked'],['Only A-card','Weak slates skipped']].map(([v,l]) => (
+          <div key={l} className="premium-panel rounded-2xl px-3 py-4">
+            <div className="text-gold font-display font-semibold text-2xl leading-none">{v}</div>
+            <div className="text-white/25 text-[10px] uppercase tracking-[0.18em] mt-2">{l}</div>
           </div>
         ))}
       </div>
 
-      {/* CTA */}
       <button
         onClick={onGenerate}
         disabled={loading}
-        className="active-press w-full max-w-xs flex items-center justify-center gap-3 px-7 py-4 bg-neon text-black font-black text-base rounded-2xl shadow-[0_0_30px_rgba(0,255,133,0.3),0_0_60px_rgba(0,255,133,0.1)] hover:shadow-[0_0_40px_rgba(0,255,133,0.5)] transition-all duration-300 disabled:opacity-50"
+        className="active-press w-full max-w-xs flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-gradient-to-r from-gold via-[#f3cc68] to-gold text-black font-extrabold text-base shadow-[0_18px_50px_rgba(240,192,64,0.22)] hover:shadow-[0_22px_60px_rgba(240,192,64,0.32)] transition-all duration-300 disabled:opacity-50"
       >
         {loading ? (
           <><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"/>Cash is analyzing...</>
         ) : (
-          <><span>♛</span>Get Today's Picks</>
+          <><span>♛</span>Open Today&apos;s Card</>
         )}
       </button>
 
-      <p className="text-white/15 text-[10px] mt-4 uppercase tracking-widest">70+ confidence minimum · Zero fluff</p>
+      <p className="text-white/15 text-[10px] mt-4 uppercase tracking-[0.28em]">70+ confidence minimum</p>
     </div>
   );
 }
@@ -83,7 +82,7 @@ function LoadingState() {
     return () => clearInterval(t);
   }, []);
   return (
-    <div className="hero-mesh min-h-[calc(100vh-120px)] flex flex-col items-center justify-center gap-8 px-6 text-center">
+    <div className="hero-mesh premium-panel gold-frame relative overflow-hidden min-h-[calc(100vh-120px)] flex flex-col items-center justify-center gap-8 rounded-[32px] px-6 text-center">
       <div className="relative w-20 h-20">
         <div className="absolute inset-0 rounded-full border border-neon/10"/>
         <div className="absolute inset-0 rounded-full border-[2.5px] border-transparent border-t-neon animate-spin"/>
@@ -91,7 +90,7 @@ function LoadingState() {
         <div className="absolute inset-0 flex items-center justify-center text-2xl select-none">♛</div>
       </div>
       <div>
-        <p className="text-white font-bold text-lg mb-2">Cash is on it</p>
+        <p className="font-display text-white text-4xl leading-none mb-2">Cash is on it</p>
         <p className="text-neon/60 text-sm transition-all duration-500">{steps[step]}</p>
         <p className="text-white/15 text-xs mt-2">Only the sharpest plays will make the cut</p>
       </div>
@@ -190,39 +189,40 @@ export default function App() {
     <div className="min-h-screen bg-[#080808] text-white font-sans">
 
       {/* ── TOP HEADER ── */}
-      <header className="sticky top-0 z-40 bg-[#080808]/90 backdrop-blur-xl border-b border-white/[0.04]">
+      <header className="sticky top-0 z-40 bg-[#080808]/86 backdrop-blur-2xl border-b border-white/[0.05]">
         <div className="max-w-2xl mx-auto px-4">
           <div className="flex items-center justify-between py-3.5">
             {/* Logo */}
             <div className="flex items-center gap-2.5">
-              <div className="relative">
-                <img src="/cashout-icon.png" alt="CashOut" className="h-8 w-auto" onError={e => { e.target.style.display='none'; document.getElementById('lf').style.display='flex'; }}/>
-                <div id="lf" className="w-8 h-8 rounded-xl bg-neon items-center justify-center font-black text-black text-lg hidden drop-shadow-[0_0_10px_rgba(0,255,133,0.5)]">$</div>
+              <div className="relative premium-panel gold-frame rounded-2xl p-2">
+                <img src="/cashout-icon.png" alt="CashOut" className="h-7 w-auto" onError={e => { e.target.style.display='none'; document.getElementById('lf').style.display='flex'; }}/>
+                <div id="lf" className="w-7 h-7 rounded-xl bg-gold items-center justify-center font-black text-black text-lg hidden">$</div>
               </div>
               <div>
-                <div className="text-white font-black text-lg tracking-tight leading-none">CashOut</div>
-                <div className="text-[8px] text-gold/60 uppercase tracking-[0.2em] font-bold leading-none mt-0.5">King of Cappers</div>
+                <div className="font-display text-white text-[1.85rem] leading-none">CashOut</div>
+                <div className="text-[8px] text-gold/60 uppercase tracking-[0.28em] font-bold leading-none mt-0.5">Syndicate Grade Capping</div>
               </div>
             </div>
 
             {/* Stats + chat */}
             <div className="flex items-center gap-3">
               {record && (
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:block text-right">
+                <div className="hidden sm:flex items-center gap-2 premium-panel rounded-2xl px-3 py-2">
+                  <div className="text-right">
                     <div className="text-neon font-black text-sm tabular leading-none">{record.picks.wins}-{record.picks.losses}</div>
-                    <div className="text-[8px] text-white/20 uppercase tracking-wider">Record</div>
+                    <div className="text-[8px] text-white/20 uppercase tracking-[0.18em]">Record</div>
                   </div>
+                  <div className="h-7 w-px bg-white/[0.06]" />
                   <div className="text-right">
                     <div className={`font-black text-sm tabular leading-none ${parseFloat(record.roi) >= 0 ? 'text-neon' : 'text-red-400'}`}>
                       {parseFloat(record.roi) >= 0 ? '+' : ''}{record.roi}%
                     </div>
-                    <div className="text-[8px] text-white/20 uppercase tracking-wider">ROI</div>
+                    <div className="text-[8px] text-white/20 uppercase tracking-[0.18em]">ROI</div>
                   </div>
                 </div>
               )}
               <button onClick={() => setChatOpen(true)}
-                className="active-press flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.07] hover:border-neon/30 hover:bg-neon/5 transition-all group">
+                className="active-press flex items-center gap-1.5 px-3 py-2 rounded-xl premium-panel hover:border-neon/30 hover:bg-neon/5 transition-all group">
                 <svg className="w-3.5 h-3.5 text-white/40 group-hover:text-neon transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                 </svg>
@@ -233,19 +233,19 @@ export default function App() {
           </div>
 
           {/* Date */}
-          <div className="text-[9px] text-white/15 uppercase tracking-[0.25em] -mt-1.5 pb-3">{today}</div>
+          <div className="text-[9px] text-white/15 uppercase tracking-[0.32em] -mt-1 pb-3">{today}</div>
 
           {/* Desktop tabs */}
           {hasPicks && (
-            <nav className="hidden sm:flex -mb-px overflow-x-auto">
+            <nav className="hidden sm:flex items-center gap-1 pb-3 overflow-x-auto">
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)}
-                  className={`px-5 py-2.5 text-sm font-medium transition-all whitespace-nowrap border-b-2 ${
-                    tab === t.id ? 'border-neon text-neon' : 'border-transparent text-white/25 hover:text-white/60'
+                  className={`px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap rounded-full ${
+                    tab === t.id ? 'premium-panel text-gold' : 'text-white/25 hover:text-white/60'
                   }`}>
                   {t.label}
                   {t.id === 'picks' && (
-                    <span className="ml-1.5 text-[9px] bg-neon/15 text-neon rounded-full px-1.5 py-0.5">{picks.length}</span>
+                    <span className="ml-1.5 text-[9px] bg-gold/15 text-gold rounded-full px-1.5 py-0.5">{picks.length}</span>
                   )}
                 </button>
               ))}
@@ -276,27 +276,37 @@ export default function App() {
         {/* TODAY'S PICKS */}
         {tab === 'picks' && !loading && hasPicks && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-white font-bold text-base leading-none">Cash's 5 Best Bets</h2>
-                <p className="text-white/20 text-[10px] mt-0.5 uppercase tracking-wider">Deep research · Sharp signals only</p>
+            <div className="premium-panel gold-frame rounded-[28px] px-5 py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="section-label mb-2">Today&apos;s Card</div>
+                  <h2 className="font-display text-white text-4xl leading-none">Best Bets</h2>
+                  <p className="text-white/22 text-[11px] mt-2 uppercase tracking-[0.2em]">Deep research · Sharp signals only</p>
+                </div>
+                <button onClick={() => generatePicks(true)}
+                  className="active-press text-[11px] px-3 py-1.5 border border-white/[0.07] text-white/25 rounded-full hover:border-gold/25 hover:text-gold/80 transition-all">
+                  Refresh Card
+                </button>
               </div>
-              <button onClick={() => generatePicks(true)}
-                className="active-press text-[11px] px-3 py-1.5 border border-white/[0.07] text-white/25 rounded-lg hover:border-white/15 hover:text-white/50 transition-all">
-                ↺ Refresh
-              </button>
+              <div className="lux-divider mt-5" />
             </div>
 
             {lock && <LockOfDay lock={lock} onUpdateResult={updatePickResult} />}
 
             {/* Sport filters */}
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h3 className="text-white font-semibold text-sm leading-none">Board filter</h3>
+                <p className="text-white/20 text-[10px] mt-1 uppercase tracking-[0.18em]">Trim the slate by market</p>
+              </div>
+            </div>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
               {SPORTS.filter(s => s === 'ALL' || activeSports.includes(s)).map(sport => (
                 <button key={sport} onClick={() => setSportFilter(sport)}
                   className={`active-press px-3 py-1.5 text-[11px] font-bold rounded-full transition-all whitespace-nowrap flex-shrink-0 ${
                     sportFilter === sport
                       ? 'bg-neon text-black shadow-[0_0_12px_rgba(0,255,133,0.3)]'
-                      : 'glass text-white/30 hover:text-white/60'
+                      : 'premium-panel text-white/30 hover:text-white/60'
                   }`}>
                   {sport}
                 </button>
@@ -321,7 +331,7 @@ export default function App() {
             {/* Bottom strip */}
             <div className="pt-5 border-t border-white/[0.04]">
               <div className="flex flex-wrap items-center justify-center gap-4 text-[9px] text-white/12 uppercase tracking-widest">
-                <span>♛ King of Cappers</span>
+                <span>♛ Syndicate Grade</span>
                 <span>·</span><span>Sharp money signals only</span>
                 <span>·</span><span>70+ confidence minimum</span>
               </div>
@@ -404,4 +414,3 @@ export default function App() {
     </div>
   );
 }
-

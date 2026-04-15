@@ -61,7 +61,8 @@ router.post('/generate', async (req, res) => {
         reasoning: result.lock.reasoning,
         signals: result.lock.signals,
         isLock: true,
-        units: 2.0
+        units: result.lock.kelly_units || 1.0,
+        kelly_units: result.lock.kelly_units || 1.0
       });
     }
 
@@ -78,7 +79,8 @@ router.post('/generate', async (req, res) => {
         reasoning: pick.reasoning,
         signals: pick.signals,
         isLock: false,
-        units: 1.0
+        units: pick.kelly_units || 1.0,
+        kelly_units: pick.kelly_units || 1.0
       });
     }
 
@@ -108,7 +110,12 @@ router.post('/generate', async (req, res) => {
 router.post('/grade', async (req, res) => {
   try {
     const today = getTodayDate();
-    const pending = db.prepare("SELECT * FROM picks WHERE date = ? AND result = 'Pending'").all(today);
+    const pending = db.prepare(`
+      SELECT * FROM picks
+      WHERE date <= ? AND result = 'Pending'
+      ORDER BY date DESC, id DESC
+      LIMIT 200
+    `).all(today);
     if (pending.length === 0) return res.json({ message: 'No pending picks to grade' });
     const results = await gradePicks(pending);
     for (const r of results) {

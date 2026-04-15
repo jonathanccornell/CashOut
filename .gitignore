@@ -7,3 +7,4 @@ cashout.db-shm
 cashout.db-wal
 .DS_Store
 *.log
+.vercel

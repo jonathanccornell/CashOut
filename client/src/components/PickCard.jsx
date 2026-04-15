@@ -66,7 +66,7 @@ export default function PickCard({ pick, onUpdateResult, rank }) {
   const pickWithRank = { ...pick, _rank: rank };
 
   return (
-    <div className="group bg-white/[0.025] border border-white/[0.05] rounded-2xl px-5 py-4 hover:border-white/10 hover:bg-white/[0.035] transition-all">
+    <div className="group premium-panel rounded-[22px] px-5 py-4 hover:border-gold/15 hover:bg-white/[0.04] transition-all">
       <div className="flex items-start gap-3">
 
         {/* Left */}
@@ -85,10 +85,10 @@ export default function PickCard({ pick, onUpdateResult, rank }) {
               </span>
             )}
           </div>
-          <p className="text-white/35 text-xs mb-1 truncate">{pick.matchup}</p>
+          <p className="text-white/28 text-[11px] mb-1 uppercase tracking-[0.14em] truncate">{pick.matchup}</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-white font-bold">{pick.pick}</span>
-            <span className="text-white/25 text-sm">{pick.odds}</span>
+            <span className="text-white font-bold text-[15px]">{pick.pick}</span>
+            <span className="text-gold/70 text-sm">{pick.odds}</span>
           </div>
         </div>
 
@@ -115,7 +115,7 @@ export default function PickCard({ pick, onUpdateResult, rank }) {
       {signals.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {signals.map((s, i) => (
-            <span key={i} className="text-[10px] text-neon/60 bg-neon/5 border border-neon/10 rounded-full px-2 py-0.5 leading-relaxed">
+            <span key={i} className="text-[10px] text-gold/75 bg-gold/10 border border-gold/10 rounded-full px-2 py-0.5 leading-relaxed">
               {s}
             </span>
           ))}

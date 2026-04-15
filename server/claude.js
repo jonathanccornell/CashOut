@@ -7,9 +7,9 @@ const SYSTEM_PROMPT = `You are CashOut — the most advanced AI sports betting a
 
 ## YOUR NON-NEGOTIABLES
 
-**RULE 1: EXACTLY 5 BEST BETS PER DAY.** After your full research, identify the 5 highest-edge plays across all sports. These are the 5 Best Bets of the Day. No more, no less. Every one must be 70+ confidence. If you cannot find 5 plays with genuine edge, find the 5 best available and be honest in the reasoning about confidence levels.
+**RULE 1: UP TO 5 BEST BETS PER DAY.** After your full research, identify the highest-edge plays across all sports. Return only the plays that clear your threshold. Every pick must be 70+ confidence. If the slate is weak, return fewer than 5 bets and say no bet on the rest.
 
-**RULE 2: THE LOCK OF THE DAY IS #1 OF THE 5.** Your Lock is your single highest-conviction play — your absolute best bet of the day. It must be 85+ confidence whenever possible. The Lock is what Cash staked his reputation on. The remaining 4 picks are the supporting card. The lock does NOT appear in the picks array — it lives in the "lock" field only.
+**RULE 2: THE LOCK OF THE DAY IS OPTIONAL.** Only return a Lock when one play is clearly the best on the board and is 85+ confidence. The lock does NOT appear in the picks array — it lives in the "lock" field only. If nothing deserves lock status, return null.
 
 **RULE 3: EVERY PICK MUST CITE SPECIFIC, VERIFIABLE SIGNALS.** "Good matchup" is not a reason. "Line opened -3.5, moved to -2 while 72% of bets are on the favorite, indicating sharp steam on the dog" IS a reason. No vague analysis.
 
@@ -214,8 +214,8 @@ For props, the "pick" field should be: "Player Name Over/Under X.5 Stat" (e.g. "
 For props, add a "player" field with the player's name and "stat" field with the stat category
 signals: array of 2-4 specific, data-driven signal bullets. For props ALWAYS include: L20 average, L5 average, hit rate at current line, and matchup rank
 confidence: integer 70-100 (only include 70+; below 70 = omit entirely)
-Include EXACTLY 4 picks in the picks array (these are Best Bets #2-5; the Lock is Best Bet #1 and lives in the lock field)
-At least 1 of the 5 best bets should be a player prop when strong props exist
+Include 0-4 picks in the picks array depending on how many non-lock bets clear 70+ confidence
+Include a player prop only when the edge is real enough to make the final card
 Include 1-3 parlays only if legs are 70+ confidence. Same-game parlays (SGP) are allowed when legs are correlated
 The lock MUST be the single highest-conviction play — can be a prop if confidence is highest there.`;
 
@@ -290,7 +290,7 @@ For the top 3-4 games by betting interest, identify the highest-value player pro
 For game bet candidates: search relevant advanced stats (FIP, Net Rating, DVOA, KenPom as appropriate). Check for back-to-back situations, travel, divisional angles, weather at outdoor venues, pace mismatches that affect props.
 
 **PHASE 6 — THE 5 BEST BETS:**
-Apply the full signal weighting framework across ALL play types — game bets AND player props. Rank every candidate by total signal score. Select the TOP 5 plays — at least 1 must be a player prop if strong prop candidates exist. The #1 play is the Lock of the Day. Plays #2-5 go in the picks array. Then build 1-3 parlays — consider same-game parlays combining a game bet with a correlated player prop.
+Apply the full signal weighting framework across ALL play types — game bets AND player props. Rank every candidate by total signal score. Select only the bets that genuinely clear 70+ confidence. If no play clears 85+, return no lock. Then build 0-3 parlays only from legs that already made the final card.
 
 Return ONLY the JSON object. Nothing else.`;
 
@@ -343,7 +343,7 @@ Return ONLY the JSON object. Nothing else.`;
     if (!parsed.parlays) parsed.parlays = [];
 
     const sanitize = (pick) => {
-      const conf = Math.min(100, Math.max(70, parseInt(pick.confidence) || 70));
+      const conf = Math.min(100, Math.max(0, parseInt(pick.confidence) || 0));
       const oddsStr = pick.odds || '-110';
       return {
         sport: pick.sport || 'MULTI',
@@ -358,8 +358,19 @@ Return ONLY the JSON object. Nothing else.`;
       };
     };
 
-    parsed.lock = sanitize(parsed.lock);
-    parsed.picks = parsed.picks.filter(p => p.confidence >= 70).map(sanitize);
+    parsed.lock = parsed.lock ? sanitize(parsed.lock) : null;
+    parsed.picks = parsed.picks.map(sanitize).filter(p => p.confidence >= 70);
+
+    if (parsed.lock && parsed.lock.confidence < 85) {
+      parsed.picks.unshift(parsed.lock);
+      parsed.lock = null;
+    }
+
+    parsed.picks.sort((a, b) => b.confidence - a.confidence);
+
+    if (!parsed.lock && parsed.picks.length > 0 && parsed.picks[0].confidence >= 85) {
+      parsed.lock = parsed.picks.shift();
+    }
 
     console.log(`[CashOut] Generated: 1 Lock + ${parsed.picks.length} picks + ${parsed.parlays.length} parlays`);
     return parsed;
@@ -430,7 +441,7 @@ async function gradePicks(pendingPicks) {
   if (!pendingPicks || pendingPicks.length === 0) return [];
 
   const pickList = pendingPicks.map(p =>
-    `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.odds}`
+    `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.line || p.odds}`
   ).join('\n');
 
   const prompt = `You are grading sports betting picks. Search for the final scores and closing lines for these games.

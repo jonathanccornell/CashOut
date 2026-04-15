@@ -40,6 +40,41 @@ if (process.env.NODE_ENV === 'production') {
 
 let autoGenerating = false;
 
+function normalizeParlayLeg(leg) {
+  return String(leg || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
+}
+
+function resolveParlayResult(parlay) {
+  let legs;
+  try {
+    legs = JSON.parse(parlay.legs || '[]').map(normalizeParlayLeg);
+  } catch {
+    return 'Pending';
+  }
+
+  if (legs.length === 0) return 'Pending';
+
+  const picksForDate = db.prepare(`
+    SELECT pick, result
+    FROM picks
+    WHERE date = ?
+  `).all(parlay.date);
+
+  const legResults = legs.map((leg) => {
+    const match = picksForDate.find((pick) => {
+      const normalizedPick = normalizeParlayLeg(pick.pick);
+      return normalizedPick === leg || leg.startsWith(normalizedPick);
+    });
+
+    return match ? match.result : null;
+  });
+
+  if (legResults.some(result => !result || result === 'Pending')) return 'Pending';
+  if (legResults.some(result => result === 'L')) return 'L';
+  if (legResults.some(result => result === 'Push')) return 'Push';
+  return 'W';
+}
+
 // Check if picks already exist for today in ET — guards against duplicate generation on restart
 function recentPicksExist() {
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -90,14 +125,14 @@ async function autoGeneratePicks() {
 }
 
 async function autoGradePicks() {
-  // Grade any picks from the last 2 days still pending (using ET dates)
+  // Grade any pending picks up through today so missed nightly runs can recover.
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  const yesterdayET = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const pending = db.prepare(`
     SELECT * FROM picks
-    WHERE date IN (?, ?) AND result = 'Pending'
-    ORDER BY date DESC
-  `).all(todayET, yesterdayET);
+    WHERE date <= ? AND result = 'Pending'
+    ORDER BY date DESC, id DESC
+    LIMIT 200
+  `).all(todayET);
   if (pending.length === 0) {
     console.log('[CashOut] No pending picks to grade.');
     return;
@@ -131,18 +166,15 @@ async function autoGradePicks() {
     }
 
     // Also grade parlays based on their legs
-    const pendingParlays = db.prepare(`SELECT * FROM parlays WHERE date IN (?, ?) AND result = 'Pending'`).all(todayET, yesterdayET);
+    const pendingParlays = db.prepare(`
+      SELECT * FROM parlays
+      WHERE date <= ? AND result = 'Pending'
+      ORDER BY date DESC, id DESC
+    `).all(todayET);
     for (const parlay of pendingParlays) {
-      const legs = JSON.parse(parlay.legs);
-      const parlayPicks = db.prepare(`SELECT result FROM picks WHERE date = ? AND result != 'Pending'`).all(today);
-      if (parlayPicks.length > 0) {
-        const allResolved = pending.length === 0 || results.every(r => r.result !== 'Pending');
-        if (allResolved) {
-          const hasLoss = results.some(r => r.result === 'L');
-          const hasPush = results.some(r => r.result === 'Push');
-          const parlayResult = hasLoss ? 'L' : hasPush ? 'Push' : 'W';
-          db.prepare('UPDATE parlays SET result = ? WHERE id = ?').run(parlayResult, parlay.id);
-        }
+      const parlayResult = resolveParlayResult(parlay);
+      if (parlayResult !== 'Pending') {
+        db.prepare('UPDATE parlays SET result = ? WHERE id = ?').run(parlayResult, parlay.id);
       }
     }
     console.log('[CashOut] Auto-grading complete.');
