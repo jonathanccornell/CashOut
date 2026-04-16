@@ -126,7 +126,8 @@ async function autoGeneratePicks() {
 
 async function autoGradePicks() {
   // Grade pending picks through today, but only accept grades when the grader
-  // explicitly confirms the game is officially final.
+  // explicitly confirms the game is officially final. Also audit same-day
+  // settled picks so any false early wins/losses get reverted to Pending.
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const pending = db.prepare(`
     SELECT * FROM picks
@@ -134,35 +135,47 @@ async function autoGradePicks() {
     ORDER BY date DESC, id DESC
     LIMIT 200
   `).all(todayET);
-  if (pending.length === 0) {
-    console.log('[CashOut] No pending picks to grade.');
+  const settledToday = db.prepare(`
+    SELECT * FROM picks
+    WHERE date = ? AND result IN ('W', 'L', 'Push')
+    ORDER BY id DESC
+    LIMIT 50
+  `).all(todayET);
+
+  if (pending.length === 0 && settledToday.length === 0) {
+    console.log('[CashOut] No picks to grade or audit.');
     return;
   }
-  console.log(`[CashOut] Auto-grading ${pending.length} pending picks...`);
-  try {
-    const results = await gradePicks(pending);
-    for (const r of results) {
-      if (r.final_confirmed === true && r.result && r.result !== 'Pending') {
-        // Get the full pick for CLV/signal calculation
-        const fullPick = db.prepare('SELECT * FROM picks WHERE id = ?').get(r.id);
 
-        // Calculate CLV if closing line available
+  console.log(`[CashOut] Auto-grading ${pending.length} pending picks and auditing ${settledToday.length} settled same-day picks...`);
+  try {
+    const checks = [...pending, ...settledToday];
+    const results = await gradePicks(checks);
+    for (const r of results) {
+      const fullPick = db.prepare('SELECT * FROM picks WHERE id = ?').get(r.id);
+      if (!fullPick) continue;
+
+      const wasSettled = fullPick.result && fullPick.result !== 'Pending';
+
+      if (r.final_confirmed === true && r.result && r.result !== 'Pending') {
         let clv = null;
-        if (r.closing_line && fullPick) {
+        if (r.closing_line) {
           clv = calculateCLV(fullPick, r.closing_line);
         }
 
-        // Update pick with result, closing line, and CLV
         db.prepare('UPDATE picks SET result = ?, closing_line = ?, clv = ? WHERE id = ?')
           .run(r.result, r.closing_line || null, clv, r.id);
 
-        // Update signal performance table
-        if (fullPick) {
+        if (!wasSettled) {
           updateSignalPerformance(fullPick, r.result, clv);
           saveSituationalPatterns(fullPick, r.result, clv);
         }
 
         console.log(`[CashOut] Pick ${r.id} graded: ${r.result} | CLV: ${clv !== null ? clv.toFixed(2) : 'N/A'} — ${r.reason}`);
+      } else if (r.final_confirmed === false && wasSettled && fullPick.date === todayET) {
+        db.prepare('UPDATE picks SET result = ?, closing_line = NULL, clv = NULL WHERE id = ?')
+          .run('Pending', r.id);
+        console.log(`[CashOut] Pick ${r.id} reverted to Pending — game not officially final.`);
       }
     }
 
