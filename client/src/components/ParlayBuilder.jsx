@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PickOutcomeControl from './PickOutcomeControl';
 
 function americanToDecimal(odds) {
   const n = parseInt(odds);
@@ -21,7 +22,7 @@ function calcPayout(decimal, units = 1) {
   return ((decimal - 1) * units).toFixed(2);
 }
 
-export default function ParlayBuilder({ parlays, picks, onUpdateParlayResult }) {
+export default function ParlayBuilder({ parlays, picks }) {
   const [customLegs, setCustomLegs] = useState([]);
   const [showCustom, setShowCustom] = useState(false);
 
@@ -80,24 +81,8 @@ export default function ParlayBuilder({ parlays, picks, onUpdateParlayResult }) 
                 <p className="text-xs text-white/25 leading-relaxed border-t border-white/5 pt-3 mb-3">{parlay.reasoning}</p>
               )}
 
-              {/* Result */}
               <div className="flex gap-2">
-                {parlay.result === 'Pending' ? (
-                  <>
-                    <button onClick={() => onUpdateParlayResult(parlay.id, 'W')}
-                      className="active-press text-[10px] font-bold px-2.5 py-1 rounded-lg bg-neon/10 text-neon border border-neon/20 hover:bg-neon/20 transition-colors">WIN</button>
-                    <button onClick={() => onUpdateParlayResult(parlay.id, 'L')}
-                      className="active-press text-[10px] font-bold px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">LOSS</button>
-                    <button onClick={() => onUpdateParlayResult(parlay.id, 'Push')}
-                      className="active-press text-[10px] font-bold px-2.5 py-1 rounded-lg bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 transition-colors">PUSH</button>
-                  </>
-                ) : (
-                  <span className={`text-xs font-bold px-3 py-1 rounded-lg ${
-                    parlay.result === 'W' ? 'bg-neon/10 text-neon border border-neon/20' :
-                    parlay.result === 'L' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                    'bg-gold/10 text-gold border border-gold/20'
-                  }`}>{parlay.result}</span>
-                )}
+                <PickOutcomeControl result={parlay.result} pendingLabel="Auto-settles" />
               </div>
             </div>
           );

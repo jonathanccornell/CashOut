@@ -18,19 +18,6 @@ export default function HistoryLog() {
     }
   }
 
-  async function updateResult(id, result) {
-    try {
-      await fetch(`${API_BASE}/api/picks/${id}/result`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ result })
-      });
-      fetchHistory();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
   const groupedByDate = history.picks.reduce((acc, pick) => {
     if (!acc[pick.date]) acc[pick.date] = [];
     acc[pick.date].push(pick);
@@ -88,11 +75,7 @@ export default function HistoryLog() {
                   </div>
 
                   <div className="shrink-0 flex items-center">
-                    {pick.result === 'Pending' ? (
-                      <PickOutcomeControl result={pick.result} id={pick.id} onUpdate={updateResult} compact />
-                    ) : (
-                      <PickOutcomeControl result={pick.result} id={pick.id} onUpdate={updateResult} compact />
-                    )}
+                    <PickOutcomeControl result={pick.result} compact pendingLabel="Auto-settles" />
                   </div>
                 </div>
               </div>

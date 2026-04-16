@@ -14,10 +14,10 @@ import LearningLog from './components/LearningLog';
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const TABS = [
-  { id: 'picks',   label: "Today's Picks", icon: '⚡' },
-  { id: 'parlays', label: 'Parlays',        icon: '🎯' },
-  { id: 'record',  label: 'Record',         icon: '📊' },
-  { id: 'history', label: 'History',        icon: '📋' },
+  { id: 'picks', label: 'Board' },
+  { id: 'parlays', label: 'Parlays' },
+  { id: 'record', label: 'Record' },
+  { id: 'history', label: 'History' },
 ];
 
 const SPORTS = ['ALL', 'NFL', 'NBA', 'MLB', 'NHL', 'NCAAF', 'NCAAB', 'MLS'];
@@ -153,7 +153,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [serverOnline, setServerOnline] = useState(true);
   const [showPricing, setShowPricing] = useState(false);
-  const { tier, email, isSharp, isElite, startCheckout, logout } = useSubscription();
+  const { startCheckout } = useSubscription();
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
@@ -201,33 +201,38 @@ export default function App() {
     finally { setLoading(false); }
   }
 
-  function showToast(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  }
-
-  async function updatePickResult(id, result) {
-    try {
-      await fetch(`${API_BASE}/api/picks/${id}/result`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ result }) });
-      await fetchTodayData(); await fetchRecord();
-      showToast(result === 'W' ? '✓ Marked as Win' : result === 'L' ? '✗ Marked as Loss' : '~ Marked as Push');
-    } catch {}
-  }
-
-  async function updateParlayResult(id, result) {
-    try {
-      await fetch(`${API_BASE}/api/parlays/${id}/result`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ result }) });
-      await fetchTodayData(); await fetchRecord();
-      showToast(result === 'W' ? '✓ Parlay Win!' : result === 'L' ? '✗ Parlay Loss' : '~ Push');
-    } catch {}
-  }
-
   const nonLockPicks = picks.filter(p => !p.is_lock);
   const filteredPicks = sportFilter === 'ALL' ? nonLockPicks : nonLockPicks.filter(p => p.sport === sportFilter);
   const activeSports = [...new Set(picks.map(p => p.sport))];
   const hasPicks = picks.length > 0;
   const avgConfidence = picks.length ? Math.round(picks.reduce((sum, p) => sum + (Number(p.confidence) || 0), 0) / picks.length) : 0;
   const settledCount = picks.filter(p => p.result && p.result !== 'Pending').length;
+
+  const NAV_ICONS = {
+    picks: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M4 7h16M4 12h10M4 17h7" strokeLinecap="round" />
+        <circle cx="18" cy="12" r="2.5" />
+      </svg>
+    ),
+    parlays: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M5 7h5l2 3 3-5 4 7" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M4 17h16" strokeLinecap="round" />
+      </svg>
+    ),
+    record: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M5 19V9M12 19V5M19 19v-7" strokeLinecap="round" />
+      </svg>
+    ),
+    history: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 8v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M20 12a8 8 0 1 1-2.34-5.66" strokeLinecap="round" />
+      </svg>
+    ),
+  };
 
   return (
     <div className="app-shell min-h-screen bg-[#080808] text-white font-sans">
@@ -359,7 +364,7 @@ export default function App() {
                 </div>
                 <div className="premium-panel rounded-2xl px-4 py-3">
                   <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Result loop</div>
-                  <div className="text-sm text-white/78 mt-2">Each grade feeds the record, history, and lock accountability.</div>
+                  <div className="text-sm text-white/78 mt-2">CashOut auto-settles picks and updates record, history, and lock accountability on its own.</div>
                 </div>
                 <div className="premium-panel rounded-2xl px-4 py-3">
                   <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Why it feels live</div>
@@ -369,7 +374,7 @@ export default function App() {
               <div className="lux-divider mt-5" />
             </div>
 
-            {lock && <LockOfDay lock={lock} onUpdateResult={updatePickResult} />}
+            {lock && <LockOfDay lock={lock} />}
 
             {/* Sport filters */}
             <div className="flex items-center justify-between px-1">
@@ -395,7 +400,7 @@ export default function App() {
             <div className="space-y-2">
               {filteredPicks.map((pick, idx) => (
                 <div key={pick.id} className="fade-up" style={{ animationDelay: `${idx * 50}ms` }}>
-                  <PickCard pick={pick} onUpdateResult={updatePickResult} rank={idx + 2} />
+                  <PickCard pick={pick} rank={idx + 2} />
                 </div>
               ))}
             </div>
@@ -411,14 +416,14 @@ export default function App() {
               <div className="flex flex-wrap items-center justify-center gap-4 text-[9px] text-white/12 uppercase tracking-widest">
                 <span>♛ CashOut Board</span>
                 <span>·</span><span>Market-sensitive picks</span>
-                <span>·</span><span>Result tracking built in</span>
+                <span>·</span><span>Auto-settled results</span>
               </div>
             </div>
           </div>
         )}
 
         {tab === 'parlays' && hasPicks && (
-          <ParlayBuilder parlays={parlays} picks={nonLockPicks} onUpdateParlayResult={updateParlayResult} />
+          <ParlayBuilder parlays={parlays} picks={nonLockPicks} />
         )}
         {tab === 'record' && <RecordDashboard record={record} />}
         {tab === 'history' && <HistoryLog />}
@@ -429,23 +434,35 @@ export default function App() {
       </main>
 
       {/* ── MOBILE BOTTOM NAV ── */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#080808]/95 backdrop-blur-xl border-t border-white/[0.06] pb-safe">
-        <div className="flex">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`active-press flex-1 flex flex-col items-center gap-1 py-3 transition-all ${
-                tab === t.id ? 'text-neon' : 'text-white/25'
-              }`}>
-              <span className="text-base leading-none">{t.icon}</span>
-              <span className="text-[9px] font-semibold uppercase tracking-wider">{t.label.split("'")[0].trim()}</span>
-              {tab === t.id && <div className="absolute bottom-0 w-1 h-1 rounded-full bg-neon" />}
+      <nav className="sm:hidden fixed bottom-3 left-3 right-3 z-40 pb-safe">
+        <div className="premium-panel rounded-[28px] border border-white/[0.08] px-2 py-2 shadow-[0_24px_60px_rgba(0,0,0,0.46)]">
+          <div className="flex items-center gap-1.5">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`active-press relative flex-1 rounded-[20px] px-2 py-2.5 transition-all ${
+                  tab === t.id
+                    ? 'bg-[linear-gradient(180deg,rgba(0,255,133,0.16),rgba(0,255,133,0.06))] text-neon border border-neon/18 shadow-[0_10px_25px_rgba(0,255,133,0.08)]'
+                    : 'text-white/32 border border-transparent'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span>{NAV_ICONS[t.id]}</span>
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em]">{t.label}</span>
+                </div>
+              </button>
+            ))}
+            <button
+              onClick={() => setChatOpen(true)}
+              className="active-press shrink-0 rounded-[22px] px-3 py-3 bg-neon text-black shadow-[0_12px_28px_rgba(0,255,133,0.22)]"
+              aria-label="Open Cash chat"
+            >
+              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
             </button>
-          ))}
-          <button onClick={() => setChatOpen(true)}
-            className="active-press flex-1 flex flex-col items-center gap-1 py-3 text-white/25 hover:text-neon transition-all">
-            <span className="text-base leading-none">💬</span>
-            <span className="text-[9px] font-semibold uppercase tracking-wider">Cash</span>
-          </button>
+          </div>
         </div>
       </nav>
 
@@ -464,12 +481,6 @@ export default function App() {
       {showPricing && <PricingModal onClose={() => setShowPricing(false)} startCheckout={startCheckout} />}
 
       {/* ── TOAST ── */}
-      {toast && (
-        <div className="fixed bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 bg-[#181818] border border-white/10 rounded-2xl text-white/80 text-sm font-semibold shadow-2xl whitespace-nowrap pointer-events-none">
-          {toast}
-        </div>
-      )}
-
       {/* ── LEGAL FOOTER ── */}
       <footer className="sm:pb-0 pb-20 border-t border-white/[0.04] bg-[#080808]">
         <div className="max-w-2xl mx-auto px-4 py-5 space-y-3">

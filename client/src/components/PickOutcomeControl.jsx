@@ -28,6 +28,15 @@ const OPTIONS = [
   },
 ];
 
+function PendingChip({ compact = false, label = 'Auto-settles' }) {
+  return (
+    <div className={`result-chip inline-flex items-center gap-2 rounded-full border border-blue-400/18 bg-[linear-gradient(180deg,rgba(71,184,255,0.16),rgba(71,184,255,0.05))] ${compact ? 'px-2.5 py-1 text-[10px]' : 'px-3.5 py-1.5 text-[11px]'} font-bold uppercase tracking-[0.18em] text-blue-200/90`}>
+      <span className="status-dot bg-blue-300 shadow-[0_0_18px_rgba(71,184,255,0.5)]" />
+      <span>{compact ? 'Auto' : label}</span>
+    </div>
+  );
+}
+
 function ResultChip({ result, compact = false }) {
   const option = OPTIONS.find(item => item.value === result);
   if (!option) return null;
@@ -42,22 +51,10 @@ function ResultChip({ result, compact = false }) {
   );
 }
 
-export default function PickOutcomeControl({ result, id, onUpdate, compact = false }) {
+export default function PickOutcomeControl({ result, compact = false, pendingLabel = 'Auto-settles' }) {
   if (result !== 'Pending') {
     return <ResultChip result={result} compact={compact} />;
   }
 
-  return (
-    <div className={`result-switch inline-flex items-center gap-1 rounded-full p-1 ${compact ? '' : 'min-h-[42px]'}`}>
-      {OPTIONS.map(option => (
-        <button
-          key={option.key}
-          onClick={() => onUpdate(id, option.value)}
-          className={`active-press rounded-full border ${compact ? 'px-2.5 py-1' : 'px-3 py-1.5'} text-[10px] font-extrabold uppercase tracking-[0.18em] transition-all ${option.buttonClass}`}
-        >
-          {compact ? option.key : option.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <PendingChip compact={compact} label={pendingLabel} />;
 }

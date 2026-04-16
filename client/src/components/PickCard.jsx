@@ -34,7 +34,7 @@ function CopyBtn({ pick }) {
   );
 }
 
-export default function PickCard({ pick, onUpdateResult, rank }) {
+export default function PickCard({ pick, rank }) {
   const [expanded, setExpanded] = useState(false);
   const conf = pick.confidence;
   const confColor = conf >= 85 ? 'text-neon' : conf >= 78 ? 'text-blue-300' : 'text-white/55';
@@ -130,7 +130,7 @@ export default function PickCard({ pick, onUpdateResult, rank }) {
           <div className="text-[10px] text-white/22 uppercase tracking-[0.2em]">Result</div>
           <div className="text-[11px] text-white/36 mt-1">{isSettled ? 'Booked on the record' : 'Settle the bet when it closes'}</div>
         </div>
-        <PickOutcomeControl result={pick.result} id={pick.id} onUpdate={onUpdateResult} compact />
+        <PickOutcomeControl result={pick.result} compact pendingLabel="Auto-settles" />
       </div>
 
       {pick.reasoning && (

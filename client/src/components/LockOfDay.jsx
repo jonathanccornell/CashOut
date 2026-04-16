@@ -6,7 +6,7 @@ function copyToClipboard(lock) {
   navigator.clipboard?.writeText(text).catch(() => {});
 }
 
-export default function LockOfDay({ lock, onUpdateResult }) {
+export default function LockOfDay({ lock }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -20,10 +20,6 @@ export default function LockOfDay({ lock, onUpdateResult }) {
     copyToClipboard(lock);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleResult = (_id, r) => {
-    if (onUpdateResult) onUpdateResult(lock.id, r === 'P' ? 'Push' : r);
   };
 
   const confPct = Math.min(100, Math.max(0, lock.confidence));
@@ -77,7 +73,7 @@ export default function LockOfDay({ lock, onUpdateResult }) {
               }
             </button>
 
-            <PickOutcomeControl result={lock.result} id={lock.id} onUpdate={handleResult} />
+            <PickOutcomeControl result={lock.result} pendingLabel="Auto-settles" />
 
             <div className="premium-panel rounded-[24px] px-3.5 py-3 min-w-[94px] text-right">
               <div className="font-display text-neon font-bold text-[2.15rem] tabular leading-none tracking-[-0.05em]">{lock.confidence}</div>

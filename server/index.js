@@ -200,15 +200,14 @@ function scheduleDailyGeneration() {
   }, msUntil11am);
   console.log(`[CashOut] Daily auto-generation scheduled in ${Math.round(msUntil11am/60000)} minutes (11 AM ET)`);
 
-  // Schedule nightly auto-grading at 3:00 AM UTC (= 11 PM ET) — after all West Coast games finish
-  const next3am = new Date(now);
-  next3am.setHours(3, 0, 0, 0);
-  if (now >= next3am) next3am.setDate(next3am.getDate() + 1);
+  // Reconcile results throughout the day so the app settles picks without user input.
+  const autoGradeIntervalMs = 30 * 60 * 1000;
+  const nextAutoGrade = new Date(now.getTime() + 2 * 60 * 1000);
   setTimeout(() => {
     autoGradePicks();
-    setInterval(autoGradePicks, 24 * 60 * 60 * 1000);
-  }, next3am - now);
-  console.log(`[CashOut] Nightly auto-grading scheduled for ${next3am.toISOString()} (3 AM UTC / 11 PM ET)`);
+    setInterval(autoGradePicks, autoGradeIntervalMs);
+  }, nextAutoGrade - now);
+  console.log(`[CashOut] Auto-grading scheduled every 30 minutes starting at ${nextAutoGrade.toISOString()}`);
 
   // Schedule post-game analysis at 3:30 AM UTC (= 11:30 PM ET)
   const next330am = new Date(now);
@@ -226,6 +225,7 @@ app.listen(PORT, () => {
   scheduleDailyGeneration();
   // Auto-generate on startup if no picks exist today
   setTimeout(autoGeneratePicks, 3000);
+  setTimeout(autoGradePicks, 15000);
   // startLiveScanner();  // enable when ready
   scheduleLearning(); // weekly self-improvement analysis every Sunday
 });
