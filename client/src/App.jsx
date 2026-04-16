@@ -390,7 +390,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-blue-400/14 bg-blue-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-blue-200/85">
                     <span className="status-dot text-blue-300" />
-                    <span>Auto-settles every 30m</span>
+                    <span>Auto-settles after final</span>
                   </div>
                   <button onClick={() => generatePicks(true)}
                     className="active-press text-[11px] px-3 py-1.5 border border-white/[0.07] text-white/25 rounded-full hover:border-neon/25 hover:text-neon transition-all">

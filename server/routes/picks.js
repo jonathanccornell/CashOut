@@ -128,7 +128,7 @@ router.post('/grade', async (req, res) => {
     const today = getTodayDate();
     const pending = db.prepare(`
       SELECT * FROM picks
-      WHERE date <= ? AND result = 'Pending'
+      WHERE date < ? AND result = 'Pending'
       ORDER BY date DESC, id DESC
       LIMIT 200
     `).all(today);

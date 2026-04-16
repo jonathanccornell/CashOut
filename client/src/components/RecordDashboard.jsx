@@ -117,7 +117,7 @@ export default function RecordDashboard({ record }) {
           <MetricCard label="Win Rate" value={`${picks.winRate}%`} detail={performanceLabel} tone={winRateValue >= 53 ? 'text-neon' : 'text-white'} />
           <MetricCard label="Decided" value={decided} detail="Resolved bets on record" />
           <MetricCard label="Streak" value={streak} detail="Current run" tone="text-gold" />
-          <MetricCard label="Pending" value={picks.pending} detail="Auto-reconciling in background" tone="text-white/80" />
+          <MetricCard label="Pending" value={picks.pending} detail="Settles automatically after games final" tone="text-white/80" />
         </div>
 
         <div className="mt-5">

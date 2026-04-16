@@ -125,11 +125,12 @@ async function autoGeneratePicks() {
 }
 
 async function autoGradePicks() {
-  // Grade any pending picks up through today so missed nightly runs can recover.
+  // Grade only prior-date picks. Same-day grading was too aggressive and could
+  // mark live games as final when search results were still ambiguous.
   const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const pending = db.prepare(`
     SELECT * FROM picks
-    WHERE date <= ? AND result = 'Pending'
+    WHERE date < ? AND result = 'Pending'
     ORDER BY date DESC, id DESC
     LIMIT 200
   `).all(todayET);
@@ -168,7 +169,7 @@ async function autoGradePicks() {
     // Also grade parlays based on their legs
     const pendingParlays = db.prepare(`
       SELECT * FROM parlays
-      WHERE date <= ? AND result = 'Pending'
+      WHERE date < ? AND result = 'Pending'
       ORDER BY date DESC, id DESC
     `).all(todayET);
     for (const parlay of pendingParlays) {
@@ -200,14 +201,15 @@ function scheduleDailyGeneration() {
   }, msUntil11am);
   console.log(`[CashOut] Daily auto-generation scheduled in ${Math.round(msUntil11am/60000)} minutes (11 AM ET)`);
 
-  // Reconcile results throughout the day so the app settles picks without user input.
-  const autoGradeIntervalMs = 30 * 60 * 1000;
-  const nextAutoGrade = new Date(now.getTime() + 2 * 60 * 1000);
+  // Reconcile results after a safe overnight window, then once per day.
+  const nextAutoGrade = new Date(now);
+  nextAutoGrade.setUTCHours(10, 0, 0, 0); // 6 AM ET / 10 AM UTC is safely after late games
+  if (now >= nextAutoGrade) nextAutoGrade.setUTCDate(nextAutoGrade.getUTCDate() + 1);
   setTimeout(() => {
     autoGradePicks();
-    setInterval(autoGradePicks, autoGradeIntervalMs);
+    setInterval(autoGradePicks, 24 * 60 * 60 * 1000);
   }, nextAutoGrade - now);
-  console.log(`[CashOut] Auto-grading scheduled every 30 minutes starting at ${nextAutoGrade.toISOString()}`);
+  console.log(`[CashOut] Auto-grading scheduled daily at ${nextAutoGrade.toISOString()} (10 AM UTC / 6 AM ET)`);
 
   // Schedule post-game analysis at 3:30 AM UTC (= 11:30 PM ET)
   const next330am = new Date(now);
