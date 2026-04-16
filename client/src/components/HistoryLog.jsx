@@ -6,17 +6,39 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 export default function HistoryLog() {
   const [history, setHistory] = useState({ picks: [], total: 0, page: 1, totalPages: 1 });
   const [page, setPage] = useState(1);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  useEffect(() => { fetchHistory(); }, [page]);
+  useEffect(() => {
+    let active = true;
 
-  async function fetchHistory() {
-    try {
-      const res = await fetch(`${API_BASE}/api/record/history?page=${page}&limit=25`);
-      setHistory(await res.json());
-    } catch (err) {
-      console.error(err);
-    }
-  }
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/record/history?page=${page}&limit=25`);
+        const data = await res.json();
+        if (!active) return;
+        setHistory(data);
+        setLastUpdated(new Date());
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    const syncIfVisible = () => {
+      if (document.visibilityState === 'visible') fetchHistory();
+    };
+
+    fetchHistory();
+    const intervalId = setInterval(syncIfVisible, 60 * 1000);
+    window.addEventListener('focus', syncIfVisible);
+    document.addEventListener('visibilitychange', syncIfVisible);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', syncIfVisible);
+      document.removeEventListener('visibilitychange', syncIfVisible);
+    };
+  }, [page]);
 
   const groupedByDate = history.picks.reduce((acc, pick) => {
     if (!acc[pick.date]) acc[pick.date] = [];
@@ -30,6 +52,11 @@ export default function HistoryLog() {
         <div>
           <h2 className="font-display text-white text-[2rem] font-bold tracking-[-0.04em] leading-none">Results Feed</h2>
           <p className="text-white/24 text-[11px] uppercase tracking-[0.2em] mt-2">Every settled pick, in one running timeline</p>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-blue-400/14 bg-blue-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-blue-200/85">
+            <span className="status-dot text-blue-300" />
+            <span>Auto-refreshing feed</span>
+            {lastUpdated && <span className="text-white/35">• {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>}
+          </div>
         </div>
         <a
           href={`${API_BASE}/api/record/export`}

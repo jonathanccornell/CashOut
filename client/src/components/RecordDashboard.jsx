@@ -69,10 +69,10 @@ export default function RecordDashboard({ record }) {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-            <MetricCard label="W-L" value="0-0" />
-            <MetricCard label="Win Rate" value="0.0%" />
-            <MetricCard label="ROI" value="0.0%" />
-            <MetricCard label="Pending" value="0" />
+          <MetricCard label="W-L" value="0-0" />
+          <MetricCard label="Win Rate" value="0.0%" />
+          <MetricCard label="ROI" value="0.0%" />
+          <MetricCard label="Pending" value="0" detail="CashOut reconciles automatically" />
           </div>
         </div>
 
@@ -117,7 +117,7 @@ export default function RecordDashboard({ record }) {
           <MetricCard label="Win Rate" value={`${picks.winRate}%`} detail={performanceLabel} tone={winRateValue >= 53 ? 'text-neon' : 'text-white'} />
           <MetricCard label="Decided" value={decided} detail="Resolved bets on record" />
           <MetricCard label="Streak" value={streak} detail="Current run" tone="text-gold" />
-          <MetricCard label="Pending" value={picks.pending} detail="Awaiting grade" tone="text-white/80" />
+          <MetricCard label="Pending" value={picks.pending} detail="Auto-reconciling in background" tone="text-white/80" />
         </div>
 
         <div className="mt-5">

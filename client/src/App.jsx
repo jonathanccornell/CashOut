@@ -9,7 +9,6 @@ import DisclaimerModal from './components/DisclaimerModal';
 import PushAlerts from './components/PushAlerts';
 import PricingModal from './components/PricingModal';
 import { useSubscription } from './hooks/useSubscription';
-import LearningLog from './components/LearningLog';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -48,6 +47,18 @@ function BoardTicker({ record, picks, lock, avgConfidence }) {
       </div>
     </div>
   );
+}
+
+function formatSyncStatus(lastSyncAt, serverOnline, isSyncing) {
+  if (!serverOnline) return 'Offline';
+  if (isSyncing) return 'Syncing now';
+  if (!lastSyncAt) return 'Connecting';
+
+  const diffSeconds = Math.max(0, Math.round((Date.now() - lastSyncAt.getTime()) / 1000));
+  if (diffSeconds < 15) return 'Just synced';
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+  const diffMinutes = Math.round(diffSeconds / 60);
+  return `${diffMinutes}m ago`;
 }
 
 /* ── Hero ── */
@@ -150,8 +161,9 @@ export default function App() {
   const [sportFilter, setSportFilter] = useState('ALL');
   const [error, setError] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [toast, setToast] = useState(null);
   const [serverOnline, setServerOnline] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState(null);
   const [showPricing, setShowPricing] = useState(false);
   const { startCheckout } = useSubscription();
 
@@ -159,36 +171,62 @@ export default function App() {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
   });
 
-  useEffect(() => {
-    fetchTodayData().then(result => {
-      // result: true = has picks, false = no picks but server online, null = offline
-      if (result === false) generatePicks(false);
-    });
-    fetchRecord();
-  }, []);
-
-  async function fetchTodayData() {
+  async function refreshAppData({ foreground = false } = {}) {
+    if (foreground) setIsSyncing(true);
     try {
-      const [a, b, c] = await Promise.all([
+      const [a, b, c, d] = await Promise.all([
         fetch(`${API_BASE}/api/picks/today`),
         fetch(`${API_BASE}/api/picks/lock`),
         fetch(`${API_BASE}/api/parlays/today`),
+        fetch(`${API_BASE}/api/record`),
       ]);
+      if (!a.ok || !b.ok || !c.ok || !d.ok) throw new Error('Sync failed');
       setServerOnline(true);
       const picksData = await a.json();
       setPicks(picksData);
       setLock(await b.json());
       setParlays(await c.json());
+      setRecord(await d.json());
+      setLastSyncAt(new Date());
       return picksData.length > 0 ? true : false; // true=has picks, false=online but empty
     } catch {
       setServerOnline(false);
       return null; // null = server offline, don't auto-generate
+    } finally {
+      if (foreground) setIsSyncing(false);
     }
   }
 
-  async function fetchRecord() {
-    try { setRecord(await (await fetch(`${API_BASE}/api/record`)).json()); } catch {}
-  }
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      const result = await refreshAppData({ foreground: true });
+      if (active && result === false) generatePicks(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncIfVisible = () => {
+      if (document.visibilityState === 'visible' && !loading) {
+        refreshAppData();
+      }
+    };
+
+    const intervalId = setInterval(syncIfVisible, 60 * 1000);
+    window.addEventListener('focus', syncIfVisible);
+    document.addEventListener('visibilitychange', syncIfVisible);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', syncIfVisible);
+      document.removeEventListener('visibilitychange', syncIfVisible);
+    };
+  }, [loading]);
 
   async function generatePicks(force = false) {
     setLoading(true); setError(null);
@@ -196,7 +234,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/picks/generate${force ? '?force=true' : ''}`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
-      await fetchTodayData(); await fetchRecord();
+      await refreshAppData({ foreground: true });
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
@@ -207,6 +245,7 @@ export default function App() {
   const hasPicks = picks.length > 0;
   const avgConfidence = picks.length ? Math.round(picks.reduce((sum, p) => sum + (Number(p.confidence) || 0), 0) / picks.length) : 0;
   const settledCount = picks.filter(p => p.result && p.result !== 'Pending').length;
+  const syncStatus = formatSyncStatus(lastSyncAt, serverOnline, isSyncing);
 
   const NAV_ICONS = {
     picks: (
@@ -281,8 +320,19 @@ export default function App() {
             </div>
           </div>
 
-          {/* Date */}
-          <div className="text-[9px] text-white/15 uppercase tracking-[0.3em] -mt-1 pb-3">{today}</div>
+          <div className="flex items-center justify-between gap-3 -mt-1 pb-3">
+            <div className="text-[9px] text-white/15 uppercase tracking-[0.3em]">{today}</div>
+            <div className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] ${
+              serverOnline
+                ? 'border-neon/15 bg-neon/[0.05] text-neon/85'
+                : 'border-red-400/18 bg-red-400/[0.06] text-red-300'
+            }`}>
+              <span className={`status-dot ${serverOnline ? 'text-neon' : 'text-red-400'}`} />
+              <span>{serverOnline ? 'CashOut Sync' : 'Offline'}</span>
+              <span className="text-white/30">•</span>
+              <span className={serverOnline ? 'text-white/60' : 'text-red-300/70'}>{syncStatus}</span>
+            </div>
+          </div>
 
           {/* Desktop tabs */}
           {hasPicks && (
@@ -337,10 +387,16 @@ export default function App() {
                   <h2 className="font-display text-white text-[2.35rem] font-bold leading-none tracking-[-0.05em]">Live Board</h2>
                   <p className="text-white/22 text-[11px] mt-2 uppercase tracking-[0.2em]">Selective card • tracked results • sharp pricing only</p>
                 </div>
-                <button onClick={() => generatePicks(true)}
-                  className="active-press text-[11px] px-3 py-1.5 border border-white/[0.07] text-white/25 rounded-full hover:border-neon/25 hover:text-neon transition-all">
-                  Refresh Card
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-blue-400/14 bg-blue-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-blue-200/85">
+                    <span className="status-dot text-blue-300" />
+                    <span>Auto-settles every 30m</span>
+                  </div>
+                  <button onClick={() => generatePicks(true)}
+                    className="active-press text-[11px] px-3 py-1.5 border border-white/[0.07] text-white/25 rounded-full hover:border-neon/25 hover:text-neon transition-all">
+                    Refresh Card
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-3 mt-5">
                 <div className="premium-panel metric-glow rounded-2xl px-4 py-3">
