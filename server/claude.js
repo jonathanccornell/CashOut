@@ -524,20 +524,22 @@ async function gradePicks(pendingPicks) {
     `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.line || p.odds}`
   ).join('\n');
 
-  const prompt = `You are grading sports betting picks. Search for the final scores and closing lines for these games.
+  const prompt = `You are grading sports betting picks. Search for the OFFICIAL game status, final scores, and closing lines for these games.
 
 PICKS TO GRADE:
 ${pickList}
 
 For each pick:
-1. Search for the final score
-2. Determine if it won (W), lost (L), or pushed (Push). Return "Pending" if game not finished.
-3. Find the CLOSING LINE for the bet — the final spread/total/moneyline just before game time
+1. Search for an authoritative game page or box score and determine whether the game is officially FINAL.
+2. If the game is NOT officially final, return "Pending" and set "final_confirmed" to false.
+3. Only if the game IS officially final, determine if the pick won (W), lost (L), or pushed (Push), and set "final_confirmed" to true.
+4. Find the CLOSING LINE for the bet — the final spread/total/moneyline just before game time.
 
 Return ONLY a JSON array:
 [
   {
     "id": 1,
+    "final_confirmed": true,
     "result": "W",
     "reason": "Team A won 108-102, covered -3.5",
     "closing_line": "-5"
@@ -552,7 +554,17 @@ Rules:
 - Spread: W if pick team covers, L if not, Push if exactly on number
 - Total: W if total crosses the line, L if not, Push if exactly on number
 - Moneyline: W if pick team wins, L if not
-- Return Pending for unfinished games`;
+- Return Pending for unfinished games
+- For player props, do NOT grade unless the game is officially final and an official player box score exists
+- If there is any ambiguity, live status, or conflicting information, return:
+  {
+    "id": <id>,
+    "final_confirmed": false,
+    "result": "Pending",
+    "reason": "Game not officially final",
+    "closing_line": null
+  }
+- Be extremely conservative: a false Pending is acceptable; a false win/loss is not.`;
 
   try {
     let messages = [{ role: 'user', content: prompt }];
