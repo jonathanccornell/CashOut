@@ -50,7 +50,7 @@ export default function HistoryLog() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-white text-[2rem] font-bold tracking-[-0.04em] leading-none">Results Feed</h2>
+          <h2 className="font-display text-white text-[1.65rem] font-bold tracking-[-0.04em] leading-none">Results Feed</h2>
           <p className="text-white/24 text-[11px] uppercase tracking-[0.2em] mt-2">Every settled pick, in one running timeline</p>
           <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-blue-400/14 bg-blue-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-blue-200/85">
             <span className="status-dot text-blue-300" />
@@ -102,7 +102,7 @@ export default function HistoryLog() {
                   </div>
 
                   <div className="shrink-0 flex items-center">
-                    <PickOutcomeControl result={pick.result} compact pendingLabel="Auto-settles" />
+                    <PickOutcomeControl result={pick.result} compact pendingLabel="Awaiting final" />
                   </div>
                 </div>
               </div>
@@ -114,9 +114,9 @@ export default function HistoryLog() {
       {history.picks.length === 0 && (
         <div className="premium-panel gold-frame market-grid rounded-[28px] px-6 py-12 text-center">
           <div className="section-label mb-3">History</div>
-          <h3 className="font-display text-white text-[2rem] font-bold tracking-[-0.04em]">No settled picks yet</h3>
+          <h3 className="font-display text-white text-[1.7rem] font-bold tracking-[-0.04em]">No settled picks yet</h3>
           <p className="text-white/35 text-sm leading-relaxed mt-3 max-w-lg mx-auto">
-            The slate has been reset. As new cards are graded, this screen will become the running timeline of every bet, result, and closing performance snapshot.
+            Once picks are graded, this becomes the running timeline for every result, market, and performance snapshot.
           </p>
         </div>
       )}

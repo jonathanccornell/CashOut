@@ -118,7 +118,7 @@ router.post('/generate', async (req, res) => {
   } catch (error) {
     generating = false;
     console.error('[CashOut] Generation error:', error);
-    res.status(500).json({ error: 'Failed to generate picks', details: error.message });
+    res.status(503).json({ error: 'CashOut is temporarily unable to generate picks.' });
   }
 });
 
@@ -141,7 +141,8 @@ router.post('/grade', async (req, res) => {
     }
     res.json({ graded: results });
   } catch (err) {
-    res.status(500).json({ error: 'Grading failed', details: err.message });
+    console.error('[CashOut] Grading error:', err);
+    res.status(503).json({ error: 'CashOut is temporarily unable to grade picks.' });
   }
 });
 

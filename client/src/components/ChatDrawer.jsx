@@ -6,7 +6,7 @@ export default function ChatDrawer({ open, onClose }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "What's up. I'm Cash. Ask me about any game, parlay ideas, or what I see on the board today — I'll give you my sharp read."
+      content: "Ask about any matchup, market, or line. I can break down the board, explain movement, and rank the strongest edges on today's slate."
     }
   ]);
   const [input, setInput] = useState('');
@@ -42,7 +42,7 @@ export default function ChatDrawer({ open, onClose }) {
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Error getting response.' }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error — is the server running?' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue. Try again in a moment.' }]);
     } finally {
       setLoading(false);
     }
@@ -84,10 +84,10 @@ export default function ChatDrawer({ open, onClose }) {
               </svg>
             </div>
             <div>
-              <div className="text-white font-bold text-sm">Cash</div>
+              <div className="text-white font-bold text-sm">CashOut Intelligence</div>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-neon animate-pulse" />
-                <span className="text-[10px] text-white/30">Sharp analyst · Online</span>
+                <span className="text-[10px] text-white/30">Board analyst · Online</span>
               </div>
             </div>
           </div>

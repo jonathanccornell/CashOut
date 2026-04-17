@@ -23,7 +23,7 @@ function MetricCard({ label, value, detail, tone = 'text-white' }) {
   return (
     <div className="premium-panel metric-glow rounded-2xl p-4">
       <div className="text-[9px] text-white/20 uppercase tracking-[0.2em]">{label}</div>
-      <div className={`font-display text-[2rem] tracking-[-0.05em] mt-2 tabular ${tone}`}>{value}</div>
+      <div className={`font-display text-[1.6rem] tracking-[-0.05em] mt-2 tabular ${tone}`}>{value}</div>
       {detail && <div className="text-[11px] text-white/30 mt-1">{detail}</div>}
     </div>
   );
@@ -54,7 +54,7 @@ export default function RecordDashboard({ record }) {
           <div className="section-label mb-3">Fresh Start</div>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="font-display text-white text-[2.35rem] font-bold tracking-[-0.05em] leading-none">
+              <h2 className="font-display text-white text-[2rem] font-bold tracking-[-0.05em] leading-none">
                 Performance cockpit
               </h2>
               <p className="text-white/40 text-sm leading-relaxed mt-3 max-w-xl">
@@ -63,7 +63,7 @@ export default function RecordDashboard({ record }) {
             </div>
             <div className="premium-panel rounded-[24px] px-4 py-4 min-w-[180px]">
               <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Status</div>
-              <div className="font-display text-neon text-[1.9rem] tracking-[-0.05em] mt-2">Ready</div>
+              <div className="font-display text-neon text-[1.55rem] tracking-[-0.05em] mt-2">Ready</div>
               <div className="text-[11px] text-white/32 mt-1">Waiting for the first graded card.</div>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function RecordDashboard({ record }) {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="section-label mb-3">Performance Layer</div>
-            <h2 className="font-display text-white text-[2.45rem] font-bold tracking-[-0.05em] leading-none">
+            <h2 className="font-display text-white text-[2rem] sm:text-[2.15rem] font-bold tracking-[-0.05em] leading-none">
               Record that feels
               <br />
               alive
@@ -131,7 +131,7 @@ export default function RecordDashboard({ record }) {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-white text-[1.8rem] font-bold tracking-[-0.04em] leading-none">Record by Sport</h2>
+          <h2 className="font-display text-white text-[1.5rem] font-bold tracking-[-0.04em] leading-none">Record by Sport</h2>
           <span className="text-[10px] text-white/20 uppercase tracking-wider">All picks • All-time</span>
         </div>
 
@@ -193,14 +193,14 @@ export default function RecordDashboard({ record }) {
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <div className="font-display text-[2rem] text-white tabular tracking-[-0.05em]">
+              <div className="font-display text-[1.65rem] text-white tabular tracking-[-0.05em]">
                 {locks.wins}-{locks.losses}{locks.pushes > 0 ? `-${locks.pushes}` : ''}
               </div>
               <div className="text-[10px] text-white/20 mt-0.5">W-L{locks.pushes > 0 ? '-P' : ''}</div>
             </div>
             <div className="h-8 w-px bg-white/5" />
             <div>
-              <div className="font-display text-[2rem] text-neon tabular tracking-[-0.05em]">
+              <div className="font-display text-[1.65rem] text-neon tabular tracking-[-0.05em]">
                 {lockDecided > 0 ? ((locks.wins / lockDecided) * 100).toFixed(0) : '—'}%
               </div>
               <div className="text-[10px] text-white/20 mt-0.5">hit rate</div>
@@ -213,7 +213,7 @@ export default function RecordDashboard({ record }) {
                 const pos = hasLockRoi && parseFloat(lockRoi) >= 0;
                 return (
                   <>
-                    <div className={`font-display text-[2rem] tracking-[-0.05em] tabular ${hasLockRoi ? (pos ? 'text-neon' : 'text-red-400') : 'text-white/20'}`}>
+                    <div className={`font-display text-[1.65rem] tracking-[-0.05em] tabular ${hasLockRoi ? (pos ? 'text-neon' : 'text-red-400') : 'text-white/20'}`}>
                       {hasLockRoi ? `${pos ? '+' : ''}${lockRoi}%` : '—'}
                     </div>
                     <div className="text-[10px] text-white/20 mt-0.5">lock ROI</div>
@@ -238,19 +238,19 @@ export default function RecordDashboard({ record }) {
           </div>
           <div className="flex items-center gap-6">
             <div>
-              <div className="font-display text-[2rem] text-white tabular tracking-[-0.05em]">{parlays.wins}-{parlays.losses}</div>
+              <div className="font-display text-[1.65rem] text-white tabular tracking-[-0.05em]">{parlays.wins}-{parlays.losses}</div>
               <div className="text-xs text-white/20 mt-0.5">W-L</div>
             </div>
             <div className="h-8 w-px bg-white/5" />
             <div>
-              <div className="font-display text-[2rem] text-gold tabular tracking-[-0.05em]">
+              <div className="font-display text-[1.65rem] text-gold tabular tracking-[-0.05em]">
                 {parlayDecided > 0 ? ((parlays.wins / parlayDecided) * 100).toFixed(0) : 0}%
               </div>
               <div className="text-xs text-white/20 mt-0.5">hit rate</div>
             </div>
             <div className="h-8 w-px bg-white/5" />
             <div>
-              <div className="font-display text-[2rem] text-white/30 tabular tracking-[-0.05em]">{parlays.total}</div>
+              <div className="font-display text-[1.65rem] text-white/30 tabular tracking-[-0.05em]">{parlays.total}</div>
               <div className="text-xs text-white/20 mt-0.5">total</div>
             </div>
           </div>

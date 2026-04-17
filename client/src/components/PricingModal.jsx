@@ -77,9 +77,9 @@ export default function PricingModal({ onClose, startCheckout, highlightFeature 
         {/* Header */}
         <div className="text-center mb-8">
           <button onClick={onClose} className="absolute top-4 right-4 text-white/20 hover:text-white/60 text-2xl leading-none">×</button>
-          <div className="text-[10px] font-black text-neon uppercase tracking-[0.3em] mb-2">Go Premium</div>
-          <h2 className="text-2xl font-black text-white">Cash doesn't give his best picks for free.</h2>
-          <p className="text-white/30 text-sm mt-2">Lock of the Day. Live alerts. The full edge.</p>
+          <div className="text-[10px] font-black text-neon uppercase tracking-[0.3em] mb-2">Upgrade Access</div>
+          <h2 className="font-display text-[1.8rem] font-bold tracking-[-0.04em] text-white">Unlock the full CashOut product</h2>
+          <p className="text-white/30 text-sm mt-2">Flagship picks, alerts, and the full performance layer.</p>
         </div>
 
         {/* Plans */}

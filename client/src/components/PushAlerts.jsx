@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE = '';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -101,7 +101,10 @@ export default function PushAlerts() {
       disabled={loading}
       className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/30 hover:text-neon transition-colors"
     >
-      <span className="text-base leading-none">🔔</span>
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 20a2 2 0 0 0 4 0" strokeLinecap="round" />
+      </svg>
       {loading ? 'Enabling...' : 'Live Alerts'}
     </button>
   );

@@ -16,7 +16,7 @@ router.post('/', async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error('[CashOut Chat] Error:', err);
-    res.status(500).json({ error: 'Chat error', details: err.message });
+    res.status(503).json({ error: 'CashOut chat is temporarily unavailable.' });
   }
 });
 

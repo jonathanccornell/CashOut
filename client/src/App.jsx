@@ -25,12 +25,12 @@ function BoardTicker({ record, picks, lock, avgConfidence }) {
   const items = [
     `Live board`,
     `${picks.length} active plays`,
-    lock ? `Lock ${lock.pick} ${lock.odds}` : 'No forced lock',
+    lock ? `Top play ${lock.pick} ${lock.odds}` : 'No forced lock',
     record ? `${record.picks.wins}-${record.picks.losses} tracked` : 'Record syncing',
-    record ? `${parseFloat(record.roi) >= 0 ? '+' : ''}${record.roi}% roi` : 'ROI tracking',
+    record ? `${parseFloat(record.roi) >= 0 ? '+' : ''}${record.roi}% ROI` : 'ROI tracking',
     `${avgConfidence || 0} avg confidence`,
-    'Selective card only',
-    'Market-grade pricing',
+    'Selective exposure',
+    'Verified after official final',
   ];
 
   const doubled = [...items, ...items];
@@ -67,17 +67,17 @@ function HeroEmpty({ onGenerate, loading }) {
     <div className="hero-mesh premium-panel gold-frame texture-grid market-grid relative overflow-hidden min-h-[calc(100vh-120px)] flex flex-col items-center justify-center rounded-[36px] px-6 py-12 text-center">
       <div className="hero-float-card hidden lg:block left-6 top-8 rounded-[24px] px-4 py-3 text-left max-w-[180px]">
         <div className="text-[9px] text-white/22 uppercase tracking-[0.18em]">Board Pulse</div>
-        <div className="font-display text-white text-2xl tracking-[-0.04em] mt-2">0 filler</div>
-        <div className="text-[11px] text-white/38 mt-1">Only real edges survive the cut.</div>
+        <div className="font-display text-white text-[1.45rem] tracking-[-0.04em] mt-2">No filler</div>
+        <div className="text-[11px] text-white/38 mt-1">Only edges that clear the threshold make the board.</div>
       </div>
       <div className="hero-float-card delay-2 hidden lg:block right-6 top-16 rounded-[24px] px-4 py-3 text-left max-w-[190px]">
-        <div className="text-[9px] text-white/22 uppercase tracking-[0.18em]">Habit Loop</div>
-        <div className="font-display text-neon text-2xl tracking-[-0.04em] mt-2">Live results</div>
-        <div className="text-[11px] text-white/38 mt-1">Every pick settles into the record in real time.</div>
+        <div className="text-[9px] text-white/22 uppercase tracking-[0.18em]">Result Integrity</div>
+        <div className="font-display text-neon text-[1.45rem] tracking-[-0.04em] mt-2">Verified results</div>
+        <div className="text-[11px] text-white/38 mt-1">Every pick reconciles automatically after official final.</div>
       </div>
       <div className="hero-float-card delay-3 hidden lg:block left-12 bottom-10 rounded-[24px] px-4 py-3 text-left max-w-[190px]">
         <div className="text-[9px] text-white/22 uppercase tracking-[0.18em]">Feel</div>
-        <div className="font-display text-blue-300 text-2xl tracking-[-0.04em] mt-2">Trading app</div>
+        <div className="font-display text-blue-300 text-[1.45rem] tracking-[-0.04em] mt-2">Trading app</div>
         <div className="text-[11px] text-white/38 mt-1">Fintech clarity, not casino chaos.</div>
       </div>
       <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-neon/60 to-transparent" />
@@ -87,23 +87,23 @@ function HeroEmpty({ onGenerate, loading }) {
       </div>
 
       <div className="section-label mb-4">Modern Betting Intelligence</div>
-      <h1 className="font-display text-[clamp(3rem,9vw,5.35rem)] font-bold text-white leading-[0.92] mb-5 max-w-2xl tracking-[-0.05em]">
-        The Robinhood of
+      <h1 className="font-display text-[clamp(2.45rem,8vw,4.5rem)] font-bold text-white leading-[0.94] mb-5 max-w-2xl tracking-[-0.05em]">
+        Modern intelligence for
         <br />
         <span className="text-neon">sports betting</span>
       </h1>
 
       <p className="text-white/44 text-sm sm:text-base leading-relaxed mb-2 max-w-xl">
-        CashOut is built like a premium finance product for bettors: clean market reads, selective cards, and a running performance layer that makes every result feel live.
+        CashOut is built like a premium market product for bettors: selective exposure, clean reads, and a verified performance layer that keeps the record credible.
       </p>
       <p className="text-white/20 text-xs mb-8 max-w-sm uppercase tracking-[0.26em]">
-        Price discipline. Sharp reads. No forced action.
+        Price discipline. Sharp reads. Verified settlement.
       </p>
 
       <div className="grid grid-cols-3 gap-3 mb-9 w-full max-w-xl">
-        {[['0 filler','Only edge'],['Live record','Tracked'],['Fast scan','Daily']].map(([v,l]) => (
+        {[['Selective','Exposure'],['Verified','Results'],['Daily','Board']].map(([v,l]) => (
           <div key={l} className="premium-panel rounded-2xl px-3 py-4">
-            <div className="text-neon font-display font-bold text-2xl leading-none">{v}</div>
+            <div className="text-neon font-display font-bold text-[1.45rem] leading-none">{v}</div>
             <div className="text-white/25 text-[10px] uppercase tracking-[0.18em] mt-2">{l}</div>
           </div>
         ))}
@@ -115,7 +115,7 @@ function HeroEmpty({ onGenerate, loading }) {
         className="active-press w-full max-w-xs flex items-center justify-center gap-3 px-7 py-4 rounded-2xl bg-gradient-to-r from-neon via-[#4dffad] to-neon text-black font-extrabold text-base shadow-[0_18px_50px_rgba(0,255,133,0.24)] hover:shadow-[0_22px_60px_rgba(0,255,133,0.34)] transition-all duration-300 disabled:opacity-50"
       >
         {loading ? (
-          <><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"/>Cash is analyzing...</>
+          <><div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"/>Analyzing today&apos;s board...</>
         ) : (
           <><span>↗</span>Open Today&apos;s Board</>
         )}
@@ -143,7 +143,7 @@ function LoadingState() {
         <div className="absolute inset-0 flex items-center justify-center text-2xl select-none">♛</div>
       </div>
       <div>
-        <p className="font-display text-white text-4xl leading-none mb-2">Building the card</p>
+        <p className="font-display text-white text-[2rem] leading-none mb-2">Building the card</p>
         <p className="text-neon/70 text-sm transition-all duration-500 uppercase tracking-[0.18em]">{steps[step]}</p>
         <p className="text-white/15 text-xs mt-2 uppercase tracking-[0.18em]">Filtering for edge only</p>
       </div>
@@ -287,7 +287,7 @@ export default function App() {
                 <div id="lf" className="w-7 h-7 rounded-xl bg-neon items-center justify-center font-black text-black text-lg hidden">$</div>
               </div>
               <div>
-                <div className="font-display text-white text-[1.65rem] font-bold leading-none tracking-[-0.05em]">CashOut</div>
+                <div className="font-display text-white text-[1.38rem] font-bold leading-none tracking-[-0.045em]">CashOut</div>
                 <div className="text-[8px] text-blue-300/60 uppercase tracking-[0.24em] font-bold leading-none mt-0.5">Market-Grade Sports Betting</div>
               </div>
             </div>
@@ -365,8 +365,8 @@ export default function App() {
           <div className="mb-5 p-4 bg-red-500/5 border border-red-500/15 rounded-2xl flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-red-400 shrink-0 animate-pulse" />
             <div>
-              <p className="text-red-400/80 text-sm font-semibold">Server offline</p>
-              <p className="text-red-400/40 text-xs mt-0.5">Start the server: <code className="bg-white/5 px-1.5 py-0.5 rounded text-[10px]">npm run dev</code> in the edgecaller directory</p>
+              <p className="text-red-400/80 text-sm font-semibold">Market data unavailable</p>
+              <p className="text-red-400/40 text-xs mt-0.5">CashOut is reconnecting to the data service. Refresh in a moment.</p>
             </div>
           </div>
         )}
@@ -384,13 +384,13 @@ export default function App() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="section-label mb-2">Today&apos;s Card</div>
-                  <h2 className="font-display text-white text-[2.35rem] font-bold leading-none tracking-[-0.05em]">Live Board</h2>
-                  <p className="text-white/22 text-[11px] mt-2 uppercase tracking-[0.2em]">Selective card • tracked results • sharp pricing only</p>
+                  <h2 className="font-display text-white text-[2rem] sm:text-[2.15rem] font-bold leading-none tracking-[-0.05em]">Live Board</h2>
+                  <p className="text-white/22 text-[11px] mt-2 uppercase tracking-[0.2em]">Selective card • verified results • sharp pricing only</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-blue-400/14 bg-blue-400/[0.06] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-blue-200/85">
                     <span className="status-dot text-blue-300" />
-                    <span>Auto-settles after final</span>
+                    <span>Verified after official final</span>
                   </div>
                   <button onClick={() => generatePicks(true)}
                     className="active-press text-[11px] px-3 py-1.5 border border-white/[0.07] text-white/25 rounded-full hover:border-neon/25 hover:text-neon transition-all">
@@ -401,16 +401,16 @@ export default function App() {
               <div className="grid grid-cols-3 gap-3 mt-5">
                 <div className="premium-panel metric-glow rounded-2xl px-4 py-3">
                   <div className="text-[9px] text-white/18 uppercase tracking-[0.22em]">Tracked plays</div>
-                  <div className="font-display text-white text-2xl leading-none tracking-[-0.04em] mt-2">{picks.length}</div>
+                  <div className="font-display text-white text-[1.55rem] leading-none tracking-[-0.04em] mt-2">{picks.length}</div>
                 </div>
                 <div className="premium-panel metric-glow rounded-2xl px-4 py-3">
                   <div className="text-[9px] text-white/18 uppercase tracking-[0.22em]">Avg confidence</div>
-                  <div className="font-display text-neon text-2xl leading-none tracking-[-0.04em] mt-2">{avgConfidence}</div>
+                  <div className="font-display text-neon text-[1.55rem] leading-none tracking-[-0.04em] mt-2">{avgConfidence}</div>
                 </div>
                 <div className="premium-panel metric-glow rounded-2xl px-4 py-3">
-                  <div className="text-[9px] text-white/18 uppercase tracking-[0.22em]">Board pulse</div>
-                  <div className="font-display text-white text-2xl leading-none tracking-[-0.04em] mt-2">{settledCount}</div>
-                  <div className="text-[10px] text-white/24 mt-1">settled today</div>
+                  <div className="text-[9px] text-white/18 uppercase tracking-[0.22em]">Settled today</div>
+                  <div className="font-display text-white text-[1.55rem] leading-none tracking-[-0.04em] mt-2">{settledCount}</div>
+                  <div className="text-[10px] text-white/24 mt-1">officially graded</div>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
@@ -420,7 +420,7 @@ export default function App() {
                 </div>
                 <div className="premium-panel rounded-2xl px-4 py-3">
                   <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Result loop</div>
-                  <div className="text-sm text-white/78 mt-2">CashOut auto-settles picks and updates record, history, and lock accountability on its own.</div>
+                  <div className="text-sm text-white/78 mt-2">CashOut verifies each result after official final and updates the record, history, and lock accountability automatically.</div>
                 </div>
                 <div className="premium-panel rounded-2xl px-4 py-3">
                   <div className="text-[9px] text-white/18 uppercase tracking-[0.2em]">Why it feels live</div>
@@ -491,13 +491,13 @@ export default function App() {
 
       {/* ── MOBILE BOTTOM NAV ── */}
       <nav className="sm:hidden fixed bottom-3 left-3 right-3 z-40 pb-safe">
-        <div className="premium-panel rounded-[28px] border border-white/[0.08] px-2 py-2 shadow-[0_24px_60px_rgba(0,0,0,0.46)]">
-          <div className="flex items-center gap-1.5">
+        <div className="premium-panel rounded-[24px] border border-white/[0.08] px-1.5 py-1.5 shadow-[0_24px_60px_rgba(0,0,0,0.46)]">
+          <div className="grid grid-cols-4 gap-1">
             {TABS.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`active-press relative flex-1 rounded-[20px] px-2 py-2.5 transition-all ${
+                className={`active-press relative rounded-[18px] px-2 py-2 transition-all ${
                   tab === t.id
                     ? 'bg-[linear-gradient(180deg,rgba(0,255,133,0.16),rgba(0,255,133,0.06))] text-neon border border-neon/18 shadow-[0_10px_25px_rgba(0,255,133,0.08)]'
                     : 'text-white/32 border border-transparent'
@@ -505,19 +505,10 @@ export default function App() {
               >
                 <div className="flex flex-col items-center gap-1">
                   <span>{NAV_ICONS[t.id]}</span>
-                  <span className="text-[9px] font-semibold uppercase tracking-[0.16em]">{t.label}</span>
+                  <span className="text-[8px] font-semibold uppercase tracking-[0.14em]">{t.label}</span>
                 </div>
               </button>
             ))}
-            <button
-              onClick={() => setChatOpen(true)}
-              className="active-press shrink-0 rounded-[22px] px-3 py-3 bg-neon text-black shadow-[0_12px_28px_rgba(0,255,133,0.22)]"
-              aria-label="Open Cash chat"
-            >
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </button>
           </div>
         </div>
       </nav>

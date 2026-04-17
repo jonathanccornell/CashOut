@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const API_BASE = '';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'cashout_token';
 
 export function useSubscription() {

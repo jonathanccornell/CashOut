@@ -39,11 +39,11 @@ export default function ParlayBuilder({ parlays, picks }) {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-white font-bold text-lg">AI Parlays</h2>
+      <h2 className="font-display text-white font-bold text-[1.45rem] tracking-[-0.03em]">Parlays</h2>
 
       {parlays.length === 0 && (
-        <div className="bg-white/[0.025] border border-white/[0.06] rounded-2xl p-8 text-center">
-          <p className="text-white/30 text-sm">Generate today's picks first to see AI parlays.</p>
+        <div className="premium-panel rounded-2xl p-8 text-center">
+          <p className="text-white/30 text-sm">Generate today&apos;s board first to see CashOut parlay angles.</p>
         </div>
       )}
 
@@ -53,7 +53,7 @@ export default function ParlayBuilder({ parlays, picks }) {
             parlay.legs.map(leg => ({ odds: leg.match(/\(([^)]+)\)/)?.[1] || '-110' }))
           );
           return (
-            <div key={parlay.id} className="bg-white/[0.025] border border-white/[0.06] rounded-2xl p-5 hover:border-white/10 transition-colors">
+            <div key={parlay.id} className="premium-panel rounded-2xl p-5 hover:border-white/10 transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <div className="text-[10px] text-white/30 uppercase tracking-widest mb-1">{parlay.legs.length}-Leg Parlay</div>
@@ -82,7 +82,7 @@ export default function ParlayBuilder({ parlays, picks }) {
               )}
 
               <div className="flex gap-2">
-                <PickOutcomeControl result={parlay.result} pendingLabel="Auto-settles" />
+                <PickOutcomeControl result={parlay.result} pendingLabel="Awaiting final" />
               </div>
             </div>
           );
@@ -129,7 +129,7 @@ export default function ParlayBuilder({ parlays, picks }) {
             ))}
 
             {customParlayPicks.length >= 2 && customOdds && (
-              <div className="mt-4 p-5 bg-white/[0.025] border border-neon/20 rounded-2xl">
+              <div className="mt-4 p-5 premium-panel border border-neon/20 rounded-2xl">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="text-[10px] text-neon uppercase tracking-widest mb-1">{customParlayPicks.length}-Leg Custom Parlay</div>

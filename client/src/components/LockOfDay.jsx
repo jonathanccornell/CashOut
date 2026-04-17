@@ -1,8 +1,20 @@
 import { useState } from 'react';
 import PickOutcomeControl from './PickOutcomeControl';
 
+function parseSignals(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function copyToClipboard(lock) {
-  const text = `♛ LOCK OF THE DAY\n${lock.sport} | ${lock.matchup}\n${lock.pick} ${lock.odds}\nConfidence: ${lock.confidence}/100\n\nvia CashOut — King of Cappers`;
+  const text = `♛ LOCK OF THE DAY\n${lock.sport} | ${lock.matchup}\n${lock.pick} ${lock.odds}\nConfidence: ${lock.confidence}/100\n\nvia CashOut`;
   navigator.clipboard?.writeText(text).catch(() => {});
 }
 
@@ -12,9 +24,7 @@ export default function LockOfDay({ lock }) {
 
   if (!lock) return null;
 
-  const signals = lock.signals
-    ? (typeof lock.signals === 'string' ? JSON.parse(lock.signals) : lock.signals)
-    : [];
+  const signals = parseSignals(lock.signals);
 
   const handleCopy = () => {
     copyToClipboard(lock);
@@ -26,7 +36,7 @@ export default function LockOfDay({ lock }) {
   const lineValue = lock.line ?? (typeof lock.pick === 'string' ? lock.pick.match(/([+-]?\d+(?:\.\d+)?)/)?.[1] : null);
 
   return (
-    <div className="mb-4 premium-panel gold-frame texture-grid market-grid relative rounded-[32px] overflow-hidden neon-pulse border border-neon/18 shadow-[0_24px_80px_rgba(0,255,133,0.12)]">
+    <div className="mb-4 premium-panel gold-frame texture-grid market-grid relative rounded-[32px] overflow-hidden border border-neon/16 shadow-[0_22px_70px_rgba(0,255,133,0.08)]">
       <div className="absolute inset-0 bg-gradient-to-br from-neon/[0.14] via-transparent to-blue-400/[0.05]" />
       <div className="absolute inset-0 bg-black/72" />
 
@@ -73,10 +83,10 @@ export default function LockOfDay({ lock }) {
               }
             </button>
 
-            <PickOutcomeControl result={lock.result} pendingLabel="Auto-settles" />
+            <PickOutcomeControl result={lock.result} pendingLabel="Awaiting final" />
 
-            <div className="premium-panel rounded-[24px] px-3.5 py-3 min-w-[94px] text-right">
-              <div className="font-display text-neon font-bold text-[2.15rem] tabular leading-none tracking-[-0.05em]">{lock.confidence}</div>
+            <div className="premium-panel rounded-[22px] px-3.5 py-2.5 min-w-[88px] text-right">
+              <div className="font-display text-neon font-bold text-[1.7rem] tabular leading-none tracking-[-0.05em]">{lock.confidence}</div>
               <div className="text-[9px] text-white/18 uppercase tracking-[0.22em] mt-1">Model grade</div>
             </div>
           </div>
@@ -89,7 +99,7 @@ export default function LockOfDay({ lock }) {
 
         <p className="text-white/35 text-[11px] uppercase tracking-[0.2em] mb-2">{lock.matchup}</p>
         <div className="flex flex-wrap items-end gap-3 mb-5">
-          <span className="font-display text-white font-bold text-[2.5rem] sm:text-[2.8rem] tracking-[-0.05em] leading-[0.96]">{lock.pick}</span>
+          <span className="font-display text-white font-bold text-[2rem] sm:text-[2.3rem] tracking-[-0.05em] leading-[0.98]">{lock.pick}</span>
           <span className="rounded-full border border-neon/18 bg-neon/[0.07] px-3 py-1.5 text-neon/90 text-sm font-bold uppercase tracking-[0.16em]">
             {lock.odds}
           </span>

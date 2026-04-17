@@ -1,7 +1,18 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getCurrentLearnings } = require('./learning');
 
-const client = new Anthropic();
+const anthropicClient = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
+const PROVIDER_LABELS = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  gemini: 'Gemini',
+};
+
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const SYSTEM_PROMPT = `You are CashOut — an elite sports betting analyst built to maximize long-term expected value, closing-line value, and disciplined bet selection.
 
@@ -132,6 +143,228 @@ If the board is weak, return:
   "picks": [],
   "parlays": []
 }`;
+
+function getProviderOrder() {
+  const requested = String(process.env.AI_PROVIDER_ORDER || 'anthropic,openai,gemini')
+    .split(',')
+    .map(provider => provider.trim().toLowerCase())
+    .filter(Boolean);
+
+  return [...new Set(requested)].filter(providerHasCredentials);
+}
+
+function providerHasCredentials(provider) {
+  if (provider === 'anthropic') return Boolean(process.env.ANTHROPIC_API_KEY);
+  if (provider === 'openai') return Boolean(process.env.OPENAI_API_KEY);
+  if (provider === 'gemini') return Boolean(process.env.GEMINI_API_KEY);
+  return false;
+}
+
+function extractOpenAIText(data) {
+  if (typeof data?.output_text === 'string' && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+
+  return (data?.output || [])
+    .filter(item => item.type === 'message')
+    .flatMap(item => item.content || [])
+    .filter(part => part.type === 'output_text' || part.type === 'text')
+    .map(part => part.text || '')
+    .join('')
+    .trim();
+}
+
+function extractGeminiText(data) {
+  return (data?.candidates || [])
+    .flatMap(candidate => candidate?.content?.parts || [])
+    .map(part => part.text || '')
+    .join('')
+    .trim();
+}
+
+function formatChatTranscript(messages) {
+  return (messages || [])
+    .map(message => `${String(message.role || 'user').toUpperCase()}: ${message.content}`)
+    .join('\n\n');
+}
+
+function formatProviderError(prefix, responseData) {
+  if (!responseData) return prefix;
+  if (typeof responseData === 'string') return `${prefix}: ${responseData}`;
+  if (responseData.error?.message) return `${prefix}: ${responseData.error.message}`;
+  return `${prefix}: ${JSON.stringify(responseData).slice(0, 400)}`;
+}
+
+async function invokeAnthropic({ system, prompt, model, maxTokens, maxSearches }) {
+  if (!anthropicClient) {
+    throw new Error('ANTHROPIC_API_KEY is not configured');
+  }
+
+  let messages = [{ role: 'user', content: prompt }];
+  let finalText = '';
+  let turnsRemaining = 8;
+
+  while (turnsRemaining > 0) {
+    const response = await anthropicClient.messages.create({
+      model,
+      max_tokens: maxTokens,
+      system,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxSearches }],
+      messages,
+    });
+
+    const turnText = response.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('');
+
+    if (turnText) finalText = turnText;
+
+    if (response.stop_reason !== 'tool_use') break;
+
+    messages.push({ role: 'assistant', content: response.content });
+    const toolUseBlocks = response.content.filter(block => block.type === 'tool_use');
+    if (toolUseBlocks.length > 0) {
+      messages.push({
+        role: 'user',
+        content: toolUseBlocks.map(block => ({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: 'Search completed. Continue.',
+        })),
+      });
+    }
+    turnsRemaining -= 1;
+  }
+
+  if (!finalText.trim()) {
+    throw new Error('Empty Anthropic response');
+  }
+
+  return finalText.trim();
+}
+
+async function invokeOpenAI({ system, prompt, model, maxTokens, searchContextSize = 'high' }) {
+  const response = await fetch(OPENAI_RESPONSES_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      instructions: system,
+      input: prompt,
+      max_output_tokens: maxTokens,
+      tool_choice: 'auto',
+      tools: [{ type: 'web_search', search_context_size: searchContextSize }],
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(formatProviderError('OpenAI request failed', data));
+  }
+
+  const text = extractOpenAIText(data);
+  if (!text) {
+    throw new Error('Empty OpenAI response');
+  }
+
+  return text;
+}
+
+async function invokeGemini({ system, prompt, model, maxTokens }) {
+  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': process.env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      system_instruction: system ? { parts: [{ text: system }] } : undefined,
+      contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+      },
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(formatProviderError('Gemini request failed', data));
+  }
+
+  const text = extractGeminiText(data);
+  if (!text) {
+    throw new Error('Empty Gemini response');
+  }
+
+  return text;
+}
+
+async function runPromptAcrossProviders({
+  taskName,
+  system,
+  prompt,
+  anthropicModel,
+  openaiModel,
+  geminiModel,
+  maxTokens,
+  anthropicSearches = 8,
+  openaiSearchContextSize = 'high',
+}) {
+  const providers = getProviderOrder();
+  if (providers.length === 0) {
+    throw new Error('No AI provider configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.');
+  }
+
+  const failures = [];
+
+  for (const provider of providers) {
+    try {
+      let text = '';
+
+      if (provider === 'anthropic') {
+        text = await invokeAnthropic({
+          system,
+          prompt,
+          model: anthropicModel,
+          maxTokens,
+          maxSearches: anthropicSearches,
+        });
+      } else if (provider === 'openai') {
+        text = await invokeOpenAI({
+          system,
+          prompt,
+          model: openaiModel,
+          maxTokens,
+          searchContextSize: openaiSearchContextSize,
+        });
+      } else if (provider === 'gemini') {
+        text = await invokeGemini({
+          system,
+          prompt,
+          model: geminiModel,
+          maxTokens,
+        });
+      }
+
+      if (!text) continue;
+
+      console.log(`[CashOut] ${taskName} succeeded via ${PROVIDER_LABELS[provider] || provider}.`);
+      return { text, provider };
+    } catch (error) {
+      const label = PROVIDER_LABELS[provider] || provider;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[CashOut] ${taskName} failed via ${label}:`, message);
+      failures.push(`${label}: ${message}`);
+    }
+  }
+
+  throw new Error(`${taskName} failed across providers: ${failures.join(' | ')}`);
+}
 
 function parseAmericanOdds(oddsStr) {
   const parsed = parseFloat(String(oddsStr || '').replace(/[^0-9+.\-]/g, ''));
@@ -363,40 +596,17 @@ PHASE 6 — RANK BY TRUE EDGE
 Return ONLY the JSON object. Nothing else.`;
 
   try {
-    let messages = [{ role: 'user', content: userPrompt }];
-    let finalText = '';
-    let maxTurns = 10;
-
-    while (maxTurns > 0) {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 16000,
-        system: SYSTEM_PROMPT,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 20 }],
-        messages
-      });
-
-      let turnText = '';
-      for (const block of response.content) {
-        if (block.type === 'text') turnText += block.text;
-      }
-      if (turnText) finalText = turnText;
-
-      if (response.stop_reason !== 'tool_use') break;
-
-      messages.push({ role: 'assistant', content: response.content });
-      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
-      if (toolUseBlocks.length > 0) {
-        messages.push({
-          role: 'user',
-          content: toolUseBlocks.map(block => ({
-            type: 'tool_result', tool_use_id: block.id,
-            content: 'Search completed. Continue analysis.'
-          }))
-        });
-      }
-      maxTurns--;
-    }
+    const { text: finalText, provider } = await runPromptAcrossProviders({
+      taskName: 'Pick generation',
+      system: SYSTEM_PROMPT,
+      prompt: userPrompt,
+      anthropicModel: process.env.ANTHROPIC_GENERATION_MODEL || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
+      openaiModel: process.env.OPENAI_GENERATION_MODEL || process.env.OPENAI_MODEL || 'gpt-5',
+      geminiModel: process.env.GEMINI_GENERATION_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+      maxTokens: 16000,
+      anthropicSearches: 20,
+      openaiSearchContextSize: 'high',
+    });
 
     const jsonMatch = finalText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No valid JSON in response');
@@ -452,7 +662,7 @@ Return ONLY the JSON object. Nothing else.`;
     if (strongestPickScore < 82) parsed.parlays = [];
     if (parsed.parlays.length > 1) parsed.parlays = parsed.parlays.slice(0, 1);
 
-    console.log(`[CashOut] Generated: 1 Lock + ${parsed.picks.length} picks + ${parsed.parlays.length} parlays`);
+    console.log(`[CashOut] Generated via ${provider}: 1 Lock + ${parsed.picks.length} picks + ${parsed.parlays.length} parlays`);
     return parsed;
   } catch (err) {
     console.error('[CashOut] Generation error:', err);
@@ -483,35 +693,17 @@ ${contextStr}
 
 Use web search when you need current injury news, line information, or game data to answer properly.`;
 
-  let messages2 = [...messages];
-  let text = '';
-  let maxTurns = 4;
-
-  while (maxTurns > 0) {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: chatSystem,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
-      messages: messages2
-    });
-
-    let turnText = '';
-    for (const block of response.content) {
-      if (block.type === 'text') turnText += block.text;
-    }
-    if (turnText) text = turnText;
-
-    if (response.stop_reason !== 'tool_use') break;
-
-    messages2.push({ role: 'assistant', content: response.content });
-    const toolBlocks = response.content.filter(b => b.type === 'tool_use');
-    messages2.push({
-      role: 'user',
-      content: toolBlocks.map(b => ({ type: 'tool_result', tool_use_id: b.id, content: 'Search completed.' }))
-    });
-    maxTurns--;
-  }
+  const { text } = await runPromptAcrossProviders({
+    taskName: 'Chat response',
+    system: chatSystem,
+    prompt: formatChatTranscript(messages),
+    anthropicModel: process.env.ANTHROPIC_CHAT_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+    openaiModel: process.env.OPENAI_CHAT_MODEL || process.env.OPENAI_MODEL || 'gpt-5-mini',
+    geminiModel: process.env.GEMINI_CHAT_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    maxTokens: 1024,
+    anthropicSearches: 5,
+    openaiSearchContextSize: 'medium',
+  });
 
   return text;
 }
@@ -567,39 +759,17 @@ Rules:
 - Be extremely conservative: a false Pending is acceptable; a false win/loss is not.`;
 
   try {
-    let messages = [{ role: 'user', content: prompt }];
-    let finalText = '';
-    let maxTurns = 8;
-
-    while (maxTurns > 0) {
-      const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 3000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 10 }],
-        messages
-      });
-
-      let turnText = '';
-      for (const block of response.content) {
-        if (block.type === 'text') turnText += block.text;
-      }
-      if (turnText) finalText = turnText;
-
-      if (response.stop_reason !== 'tool_use') break;
-
-      messages.push({ role: 'assistant', content: response.content });
-      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
-      if (toolUseBlocks.length > 0) {
-        messages.push({
-          role: 'user',
-          content: toolUseBlocks.map(block => ({
-            type: 'tool_result', tool_use_id: block.id,
-            content: 'Search completed. Continue grading.'
-          }))
-        });
-      }
-      maxTurns--;
-    }
+    const { text: finalText } = await runPromptAcrossProviders({
+      taskName: 'Pick grading',
+      system: '',
+      prompt,
+      anthropicModel: process.env.ANTHROPIC_GRADE_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+      openaiModel: process.env.OPENAI_GRADE_MODEL || process.env.OPENAI_MODEL || 'gpt-5-mini',
+      geminiModel: process.env.GEMINI_GRADE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      maxTokens: 3000,
+      anthropicSearches: 10,
+      openaiSearchContextSize: 'medium',
+    });
 
     const jsonMatch = finalText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) throw new Error('No JSON array in response');

@@ -12,10 +12,22 @@ const SPORT_STYLE = {
   Soccer: 'text-teal-400 bg-teal-400/8 border-teal-400/15',
 };
 
+function parseSignals(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function CopyBtn({ pick }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
-    const text = `#${pick._rank ? pick._rank : ''} ${pick.sport} | ${pick.matchup}\n${pick.pick} ${pick.odds} | Conf: ${pick.confidence}\n\nvia CashOut — King of Cappers`;
+    const text = `#${pick._rank ? pick._rank : ''} ${pick.sport} | ${pick.matchup}\n${pick.pick} ${pick.odds} | Conf: ${pick.confidence}\n\nvia CashOut`;
     navigator.clipboard?.writeText(text).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -39,7 +51,7 @@ export default function PickCard({ pick, rank }) {
   const conf = pick.confidence;
   const confColor = conf >= 85 ? 'text-neon' : conf >= 78 ? 'text-blue-300' : 'text-white/55';
   const sportStyle = SPORT_STYLE[pick.sport] || 'text-white/40 bg-white/4 border-white/8';
-  const signals = pick.signals ? (typeof pick.signals === 'string' ? JSON.parse(pick.signals) : pick.signals) : [];
+  const signals = parseSignals(pick.signals);
   const pickWithRank = { ...pick, _rank: rank };
   const edgeLabel = conf >= 85 ? 'A+' : conf >= 80 ? 'A' : conf >= 75 ? 'B+' : 'B';
   const betType = pick.bet_type || pick.betType;
@@ -71,7 +83,7 @@ export default function PickCard({ pick, rank }) {
 
           <div className="mt-2 flex items-end justify-between gap-4">
             <div className="min-w-0">
-              <div className="font-display text-white font-bold text-[1.45rem] sm:text-[1.6rem] leading-[1.02] tracking-[-0.04em]">
+              <div className="font-display text-white font-bold text-[1.22rem] sm:text-[1.35rem] leading-[1.05] tracking-[-0.04em]">
                 {pick.pick}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/28">
@@ -93,8 +105,8 @@ export default function PickCard({ pick, rank }) {
 
             <div className="shrink-0 flex items-start gap-3">
               <CopyBtn pick={pickWithRank} />
-              <div className="premium-panel rounded-[22px] px-3 py-3 min-w-[88px] text-right">
-                <div className={`font-display text-[1.95rem] font-bold tabular leading-none tracking-[-0.05em] ${confColor}`}>{conf}</div>
+              <div className="premium-panel rounded-[20px] px-3 py-2.5 min-w-[82px] text-right">
+                <div className={`font-display text-[1.55rem] font-bold tabular leading-none tracking-[-0.05em] ${confColor}`}>{conf}</div>
                 <div className="text-[9px] text-white/22 mt-1 uppercase tracking-[0.22em]">Model grade</div>
               </div>
             </div>
@@ -128,9 +140,9 @@ export default function PickCard({ pick, rank }) {
       <div className="mt-4 flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] text-white/22 uppercase tracking-[0.2em]">Result</div>
-          <div className="text-[11px] text-white/36 mt-1">{isSettled ? 'Booked on the record' : 'Settle the bet when it closes'}</div>
+          <div className="text-[11px] text-white/36 mt-1">{isSettled ? 'Booked on the record' : 'Awaiting verified final'}</div>
         </div>
-        <PickOutcomeControl result={pick.result} compact pendingLabel="Auto-settles" />
+        <PickOutcomeControl result={pick.result} compact pendingLabel="Awaiting final" />
       </div>
 
       {pick.reasoning && (
