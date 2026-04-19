@@ -439,6 +439,64 @@ function extractSignalTags(signals, reasoning = '') {
   return [...tags];
 }
 
+function countNumericEvidence(signals, reasoning = '') {
+  const text = `${Array.isArray(signals) ? signals.join(' ') : String(signals || '')} ${reasoning || ''}`;
+  return (text.match(/\b\d+(?:\.\d+)?%?\b/g) || []).length;
+}
+
+function getPickEvidenceProfile(pick) {
+  const signals = Array.isArray(pick.signals) ? pick.signals : [];
+  const reasoning = String(pick.reasoning || '');
+  const signalTags = extractSignalTags(signals, reasoning);
+  const marketSignalCount = signalTags.filter(tag => ['rlm', 'steam', 'public_split', 'line_movement'].includes(tag)).length;
+  const advancedSignalCount = signalTags.filter(tag => ['injury', 'schedule', 'weather', 'advanced_metric', 'prop_form'].includes(tag)).length;
+  const numericEvidenceCount = countNumericEvidence(signals, reasoning);
+
+  return {
+    signals,
+    reasoning,
+    signalTags,
+    marketSignalCount,
+    advancedSignalCount,
+    numericEvidenceCount,
+  };
+}
+
+function isPlayableFallbackCandidate(pick) {
+  const { marketSignalCount, advancedSignalCount, numericEvidenceCount, reasoning } = getPickEvidenceProfile(pick);
+  return (
+    (Number(pick.confidence) || 0) >= 72 &&
+    (Number(pick.selection_score) || 0) >= 73 &&
+    reasoning.length >= 120 &&
+    numericEvidenceCount >= 3 &&
+    (marketSignalCount >= 1 || advancedSignalCount >= 2)
+  );
+}
+
+function qualifyLockCandidate(lockPick, rankedPicks, learnings) {
+  if (!lockPick) return null;
+
+  const scoredLock = {
+    ...lockPick,
+    selection_score: Number.isFinite(lockPick.selection_score)
+      ? lockPick.selection_score
+      : scorePickQuality(lockPick, learnings),
+  };
+
+  const { marketSignalCount, advancedSignalCount, numericEvidenceCount, reasoning } = getPickEvidenceProfile(scoredLock);
+  const nextBestScore = rankedPicks[0]?.selection_score || 0;
+  const scoreGap = scoredLock.selection_score - nextBestScore;
+
+  if ((Number(scoredLock.confidence) || 0) < 86) return null;
+  if (scoredLock.selection_score < 88) return null;
+  if (reasoning.length < 140) return null;
+  if (numericEvidenceCount < 4) return null;
+  if (marketSignalCount < 1 && advancedSignalCount < 3) return null;
+  if (scoreGap < 3) return null;
+
+  return scoredLock;
+}
+
 function applyLearningsAdjustment(pick, learnings) {
   if (!learnings?.insights?.length) return 0;
 
@@ -472,21 +530,20 @@ function applyLearningsAdjustment(pick, learnings) {
 }
 
 function scorePickQuality(pick, learnings) {
-  const signals = Array.isArray(pick.signals) ? pick.signals : [];
-  const reasoning = String(pick.reasoning || '');
+  const { signals, reasoning, signalTags, marketSignalCount, advancedSignalCount, numericEvidenceCount } = getPickEvidenceProfile(pick);
   const combinedText = `${signals.join(' ')} ${reasoning}`.toLowerCase();
   const betType = pick.betType || 'spread';
-  const signalTags = extractSignalTags(signals, reasoning);
-  const marketSignalCount = signalTags.filter(tag => ['rlm', 'steam', 'public_split', 'line_movement'].includes(tag)).length;
-  const advancedSignalCount = signalTags.filter(tag => ['injury', 'schedule', 'weather', 'advanced_metric', 'prop_form'].includes(tag)).length;
 
   let score = Number(pick.confidence) || 0;
   score += Math.min(8, signals.length * 2);
   score += Math.min(8, marketSignalCount * 4);
   score += Math.min(6, advancedSignalCount * 2);
+  score += Math.min(6, numericEvidenceCount);
   if (pick.line) score += 2;
   if (reasoning.length >= 150) score += 3;
   if (reasoning.length < 90) score -= 5;
+  if (numericEvidenceCount < 2) score -= 6;
+  if (numericEvidenceCount >= 5) score += 2;
 
   if (betType === 'prop') {
     const hasPropProof = ['l20', 'l5', 'hit rate', 'matchup', 'usage', 'minutes'].every(term => combinedText.includes(term));
@@ -534,6 +591,12 @@ function dedupeAndRankPicks(candidates, learnings) {
   const strongestScore = kept[0]?.selection_score || 0;
   const maxPicks = strongestScore >= 90 ? 4 : strongestScore >= 84 ? 3 : 2;
   return kept.slice(0, maxPicks);
+}
+
+function rescueBestAvailablePicks(rankedPicks) {
+  return rankedPicks
+    .filter(isPlayableFallbackCandidate)
+    .slice(0, 2);
 }
 
 // Kelly Criterion unit sizing using conservative win-prob mapping and 1/8 Kelly
@@ -617,6 +680,8 @@ PHASE 6 — RANK BY TRUE EDGE
 - Return only the bets that truly clear 70+ confidence.
 - Return a lock only if one play clearly deserves 86+ confidence.
 - Return no parlays unless they are clearly justified by already-strong legs.
+- If the slate is playable but thin, prefer 1-2 best available bets over a dead-empty card.
+- Only return a fully empty card when you genuinely cannot defend a single actionable number on the board.
 
 Return ONLY the JSON object. Nothing else.`;
 
@@ -680,16 +745,17 @@ Return ONLY the JSON object. Nothing else.`;
         const rankedPicks = dedupeAndRankPicks(parsed.picks, learnings);
         parsed.picks = rankedPicks;
 
-        if (parsed.lock) {
-          parsed.lock.selection_score = scorePickQuality(parsed.lock, learnings);
-          if (parsed.lock.selection_score < 84) {
-            parsed.picks = dedupeAndRankPicks([parsed.lock, ...parsed.picks], learnings);
-            parsed.lock = null;
-          }
+        const qualifiedLock = qualifyLockCandidate(parsed.lock, parsed.picks, learnings);
+        if (qualifiedLock) {
+          parsed.lock = qualifiedLock;
+        } else if (parsed.lock) {
+          parsed.picks = dedupeAndRankPicks([parsed.lock, ...parsed.picks], learnings);
+          parsed.lock = null;
         }
 
-        if (!parsed.lock) {
-          parsed.picks = parsed.picks.filter(p => p.selection_score >= 76);
+        parsed.picks = parsed.picks.filter(p => p.selection_score >= 76);
+        if (parsed.picks.length === 0) {
+          parsed.picks = rescueBestAvailablePicks(rankedPicks);
         }
 
         const strongestPickScore = parsed.lock?.selection_score || parsed.picks[0]?.selection_score || 0;
