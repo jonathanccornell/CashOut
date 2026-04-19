@@ -304,6 +304,48 @@ async function invokeGemini({ system, prompt, model, maxTokens }) {
   return text;
 }
 
+async function invokeProvider(provider, {
+  system,
+  prompt,
+  anthropicModel,
+  openaiModel,
+  geminiModel,
+  maxTokens,
+  anthropicSearches = 8,
+  openaiSearchContextSize = 'high',
+}) {
+  if (provider === 'anthropic') {
+    return invokeAnthropic({
+      system,
+      prompt,
+      model: anthropicModel,
+      maxTokens,
+      maxSearches: anthropicSearches,
+    });
+  }
+
+  if (provider === 'openai') {
+    return invokeOpenAI({
+      system,
+      prompt,
+      model: openaiModel,
+      maxTokens,
+      searchContextSize: openaiSearchContextSize,
+    });
+  }
+
+  if (provider === 'gemini') {
+    return invokeGemini({
+      system,
+      prompt,
+      model: geminiModel,
+      maxTokens,
+    });
+  }
+
+  throw new Error(`Unknown provider: ${provider}`);
+}
+
 async function runPromptAcrossProviders({
   taskName,
   system,
@@ -324,33 +366,16 @@ async function runPromptAcrossProviders({
 
   for (const provider of providers) {
     try {
-      let text = '';
-
-      if (provider === 'anthropic') {
-        text = await invokeAnthropic({
-          system,
-          prompt,
-          model: anthropicModel,
-          maxTokens,
-          maxSearches: anthropicSearches,
-        });
-      } else if (provider === 'openai') {
-        text = await invokeOpenAI({
-          system,
-          prompt,
-          model: openaiModel,
-          maxTokens,
-          searchContextSize: openaiSearchContextSize,
-        });
-      } else if (provider === 'gemini') {
-        text = await invokeGemini({
-          system,
-          prompt,
-          model: geminiModel,
-          maxTokens,
-        });
-      }
-
+      const text = await invokeProvider(provider, {
+        system,
+        prompt,
+        anthropicModel,
+        openaiModel,
+        geminiModel,
+        maxTokens,
+        anthropicSearches,
+        openaiSearchContextSize,
+      });
       if (!text) continue;
 
       console.log(`[CashOut] ${taskName} succeeded via ${PROVIDER_LABELS[provider] || provider}.`);
@@ -596,25 +621,6 @@ PHASE 6 — RANK BY TRUE EDGE
 Return ONLY the JSON object. Nothing else.`;
 
   try {
-    const { text: finalText, provider } = await runPromptAcrossProviders({
-      taskName: 'Pick generation',
-      system: SYSTEM_PROMPT,
-      prompt: userPrompt,
-      anthropicModel: process.env.ANTHROPIC_GENERATION_MODEL || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
-      openaiModel: process.env.OPENAI_GENERATION_MODEL || process.env.OPENAI_MODEL || 'gpt-5',
-      geminiModel: process.env.GEMINI_GENERATION_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-pro',
-      maxTokens: 16000,
-      anthropicSearches: 20,
-      openaiSearchContextSize: 'high',
-    });
-
-    const jsonMatch = finalText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No valid JSON in response');
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!parsed.picks) throw new Error('Missing picks array');
-    if (!parsed.parlays) parsed.parlays = [];
-
     const sanitize = (pick) => {
       const conf = Math.min(100, Math.max(0, parseInt(pick.confidence) || 0));
       const oddsStr = pick.odds || '-110';
@@ -634,36 +640,83 @@ Return ONLY the JSON object. Nothing else.`;
         kelly_units: calculateKellyUnits(conf, oddsStr)
       };
     };
-
-    parsed.lock = parsed.lock ? sanitize(parsed.lock) : null;
-    parsed.picks = parsed.picks.map(sanitize).filter(p => p.confidence >= 70);
-
-    if (parsed.lock && parsed.lock.confidence < 86) {
-      parsed.picks.unshift(parsed.lock);
-      parsed.lock = null;
+    const providers = getProviderOrder();
+    if (providers.length === 0) {
+      throw new Error('No AI provider configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.');
     }
 
-    const rankedPicks = dedupeAndRankPicks(parsed.picks, learnings);
-    parsed.picks = rankedPicks;
+    const providerConfig = {
+      system: SYSTEM_PROMPT,
+      prompt: userPrompt,
+      anthropicModel: process.env.ANTHROPIC_GENERATION_MODEL || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
+      openaiModel: process.env.OPENAI_GENERATION_MODEL || process.env.OPENAI_MODEL || 'gpt-5',
+      geminiModel: process.env.GEMINI_GENERATION_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+      maxTokens: 16000,
+      anthropicSearches: 20,
+      openaiSearchContextSize: 'high',
+    };
 
-    if (parsed.lock) {
-      parsed.lock.selection_score = scorePickQuality(parsed.lock, learnings);
-      if (parsed.lock.selection_score < 84) {
-        parsed.picks = dedupeAndRankPicks([parsed.lock, ...parsed.picks], learnings);
-        parsed.lock = null;
+    let bestEmptyCard = null;
+    const failures = [];
+
+    for (const provider of providers) {
+      try {
+        const finalText = await invokeProvider(provider, providerConfig);
+        const jsonMatch = finalText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No valid JSON in response');
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (!parsed.picks) throw new Error('Missing picks array');
+        if (!parsed.parlays) parsed.parlays = [];
+
+        parsed.lock = parsed.lock ? sanitize(parsed.lock) : null;
+        parsed.picks = parsed.picks.map(sanitize).filter(p => p.confidence >= 70);
+
+        if (parsed.lock && parsed.lock.confidence < 86) {
+          parsed.picks.unshift(parsed.lock);
+          parsed.lock = null;
+        }
+
+        const rankedPicks = dedupeAndRankPicks(parsed.picks, learnings);
+        parsed.picks = rankedPicks;
+
+        if (parsed.lock) {
+          parsed.lock.selection_score = scorePickQuality(parsed.lock, learnings);
+          if (parsed.lock.selection_score < 84) {
+            parsed.picks = dedupeAndRankPicks([parsed.lock, ...parsed.picks], learnings);
+            parsed.lock = null;
+          }
+        }
+
+        if (!parsed.lock) {
+          parsed.picks = parsed.picks.filter(p => p.selection_score >= 76);
+        }
+
+        const strongestPickScore = parsed.lock?.selection_score || parsed.picks[0]?.selection_score || 0;
+        if (strongestPickScore < 82) parsed.parlays = [];
+        if (parsed.parlays.length > 1) parsed.parlays = parsed.parlays.slice(0, 1);
+
+        if (parsed.lock || parsed.picks.length > 0 || parsed.parlays.length > 0) {
+          console.log(`[CashOut] Generated via ${provider}: 1 Lock + ${parsed.picks.length} picks + ${parsed.parlays.length} parlays`);
+          return parsed;
+        }
+
+        console.log(`[CashOut] ${PROVIDER_LABELS[provider] || provider} returned an empty card, trying next provider...`);
+        bestEmptyCard = parsed;
+      } catch (error) {
+        const label = PROVIDER_LABELS[provider] || provider;
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[CashOut] Pick generation failed via ${label}:`, message);
+        failures.push(`${label}: ${message}`);
       }
     }
 
-    if (!parsed.lock) {
-      parsed.picks = parsed.picks.filter(p => p.selection_score >= 76);
+    if (bestEmptyCard) {
+      console.log('[CashOut] All configured providers returned an empty card.');
+      return bestEmptyCard;
     }
 
-    const strongestPickScore = parsed.lock?.selection_score || parsed.picks[0]?.selection_score || 0;
-    if (strongestPickScore < 82) parsed.parlays = [];
-    if (parsed.parlays.length > 1) parsed.parlays = parsed.parlays.slice(0, 1);
-
-    console.log(`[CashOut] Generated via ${provider}: 1 Lock + ${parsed.picks.length} picks + ${parsed.parlays.length} parlays`);
-    return parsed;
+    throw new Error(`Pick generation failed across providers: ${failures.join(' | ')}`);
   } catch (err) {
     console.error('[CashOut] Generation error:', err);
     throw err;
