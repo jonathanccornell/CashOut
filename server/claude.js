@@ -921,16 +921,29 @@ async function gradePicks(pendingPicks) {
     `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.line || p.odds}`
   ).join('\n');
 
+  const sourceRules = `AUTHORITATIVE SOURCE RULES BY SPORT
+- NBA / WNBA: prefer NBA.com / WNBA.com official game page or official box score. ESPN or CBS Sports box score only as fallback.
+- NFL / NCAAF: prefer NFL.com or official school/conference game book / NCAA official stats. ESPN gamecast/box score only as fallback.
+- MLB: prefer MLB.com Gameday / official box score. ESPN box score only as fallback.
+- NHL: prefer NHL.com Gamecenter / official box score. ESPN only as fallback.
+- NCAAB / NCAAW: prefer NCAA or official school/conference box score. ESPN only as fallback.
+- Soccer / MLS / EPL: prefer official league or club match center. ESPN / FotMob only as fallback.
+
+If you cannot identify an authoritative source class for the game result, do NOT settle it. Return Pending.`;
+
   const prompt = `You are grading sports betting picks. Search for the OFFICIAL game status, final scores, and closing lines for these games.
 
 PICKS TO GRADE:
 ${pickList}
+
+${sourceRules}
 
 For each pick:
 1. Search for an authoritative game page or box score and determine whether the game is officially FINAL.
 2. If the game is NOT officially final, return "Pending" and set "final_confirmed" to false.
 3. Only if the game IS officially final, determine if the pick won (W), lost (L), or pushed (Push), and set "final_confirmed" to true.
 4. Find the CLOSING LINE for the bet — the final spread/total/moneyline just before game time.
+5. Identify the authoritative source used to verify final status.
 
 Return ONLY a JSON array:
 [
@@ -939,12 +952,23 @@ Return ONLY a JSON array:
     "final_confirmed": true,
     "result": "W",
     "reason": "Team A won 108-102, covered -3.5",
-    "closing_line": "-5"
+    "closing_line": "-5",
+    "source_label": "NBA.com official box score",
+    "source_type": "official_league",
+    "source_url": "https://www.nba.com/game/..."
   }
 ]
 
 For closing_line: return the closing spread (e.g. "-5"), closing total (e.g. "47.5"), or closing moneyline (e.g. "-165").
 If you cannot find the closing line, return null for closing_line.
+For source_type, use one of:
+- official_league
+- official_team
+- official_school
+- official_conference
+- official_boxscore
+- official_stats_feed
+- fallback_scoreboard
 Return ONLY the JSON array.
 
 Rules:
@@ -959,7 +983,10 @@ Rules:
     "final_confirmed": false,
     "result": "Pending",
     "reason": "Game not officially final",
-    "closing_line": null
+    "closing_line": null,
+    "source_label": null,
+    "source_type": null,
+    "source_url": null
   }
 - Be extremely conservative: a false Pending is acceptable; a false win/loss is not.`;
 

@@ -277,6 +277,10 @@ export default function RecordDashboard({ record }) {
               <span>{settlement.corrections || 0} corrections</span>
               <span>{settlement.settled || 0} settled</span>
             </div>
+            <div className="flex items-center gap-4 mt-2 text-[10px] uppercase tracking-[0.16em] text-white/24">
+              <span>{settlement.authoritative_sources || 0} authoritative</span>
+              <span>{settlement.fallback_sources || 0} fallback</span>
+            </div>
           </div>
         </div>
 

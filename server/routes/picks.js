@@ -151,7 +151,10 @@ router.post('/grade', async (req, res) => {
           clv,
           finalConfirmed: true,
           reason: r.reason || null,
-          source: r.graded_by || 'manual-grade-run'
+          source: r.source_label || null,
+          sourceType: r.source_type || null,
+          sourceUrl: r.source_url || null,
+          provider: r.graded_by || 'manual-grade-run'
         });
       }
     }
@@ -187,7 +190,9 @@ router.patch('/:id/result', (req, res) => {
     result,
     finalConfirmed: result !== 'Pending',
     reason: 'Manual override',
-    source: 'manual-override'
+    source: 'Manual override',
+    sourceType: 'internal_override',
+    provider: 'manual-override'
   });
   res.json({ message: 'Result updated' });
 });

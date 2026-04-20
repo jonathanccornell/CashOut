@@ -120,6 +120,15 @@ export default function HistoryLog() {
                           {pick.lock_tier} lock
                         </span>
                       )}
+                      {pick.settlement_source && (
+                        <span className={`text-[10px] border rounded-full px-2 py-0.5 uppercase tracking-[0.14em] ${
+                          pick.settlement_source_type && pick.settlement_source_type !== 'fallback_scoreboard'
+                            ? 'text-blue-100/80 border-blue-300/14 bg-blue-300/[0.06]'
+                            : 'text-white/45 border-white/[0.10] bg-white/[0.03]'
+                        }`}>
+                          {pick.settlement_source}
+                        </span>
+                      )}
                       {pick.clv !== null && pick.clv !== undefined && (
                         <span className={`text-[10px] border rounded-full px-2 py-0.5 uppercase tracking-[0.14em] ${Number(pick.clv) >= 0 ? 'text-neon border-neon/18 bg-neon/[0.06]' : 'text-red-400 border-red-400/18 bg-red-400/10'}`}>
                           {Number(pick.clv) >= 0 ? '+' : ''}{Number(pick.clv).toFixed(1)} CLV

@@ -175,7 +175,10 @@ async function autoGradePicks() {
           clv,
           finalConfirmed: true,
           reason: r.reason || null,
-          source: r.graded_by || 'auto-grader'
+          source: r.source_label || null,
+          sourceType: r.source_type || null,
+          sourceUrl: r.source_url || null,
+          provider: r.graded_by || 'auto-grader'
         });
 
         if (!wasSettled) {
@@ -191,7 +194,10 @@ async function autoGradePicks() {
           clv: null,
           finalConfirmed: false,
           reason: r.reason || 'Game not officially final',
-          source: r.graded_by || 'auto-grader'
+          source: r.source_label || null,
+          sourceType: r.source_type || null,
+          sourceUrl: r.source_url || null,
+          provider: r.graded_by || 'auto-grader'
         });
         console.log(`[CashOut] Pick ${r.id} reverted to Pending — game not officially final.`);
       }

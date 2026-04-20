@@ -61,6 +61,9 @@ try { db.exec('ALTER TABLE picks ADD COLUMN verified_final_at TEXT DEFAULT NULL'
 try { db.exec('ALTER TABLE picks ADD COLUMN settled_at TEXT DEFAULT NULL'); } catch {}
 try { db.exec('ALTER TABLE picks ADD COLUMN settlement_reason TEXT DEFAULT NULL'); } catch {}
 try { db.exec('ALTER TABLE picks ADD COLUMN settlement_source TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN settlement_source_type TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN settlement_source_url TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN settlement_provider TEXT DEFAULT NULL'); } catch {}
 
 // Signal performance tracking
 try {
@@ -106,6 +109,9 @@ try {
       reason TEXT,
       closing_line TEXT,
       clv REAL,
+      source_label TEXT,
+      source_type TEXT,
+      source_url TEXT,
       provider TEXT,
       audited_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY(pick_id) REFERENCES picks(id) ON DELETE CASCADE
@@ -223,12 +229,15 @@ function recordSettlementAudit({
   reason = null,
   closingLine = null,
   clv = null,
+  sourceLabel = null,
+  sourceType = null,
+  sourceUrl = null,
   provider = null
 }) {
   return db.prepare(`
     INSERT INTO settlement_audit (
-      pick_id, previous_result, new_result, action, final_confirmed, reason, closing_line, clv, provider
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      pick_id, previous_result, new_result, action, final_confirmed, reason, closing_line, clv, source_label, source_type, source_url, provider
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     pickId,
     previousResult || null,
@@ -238,6 +247,9 @@ function recordSettlementAudit({
     reason || null,
     closingLine || null,
     Number.isFinite(clv) ? clv : null,
+    sourceLabel || null,
+    sourceType || null,
+    sourceUrl || null,
     provider || null
   );
 }
@@ -248,7 +260,10 @@ function updatePickSettlement(id, {
   clv = undefined,
   finalConfirmed = false,
   reason = null,
-  source = null
+  source = null,
+  sourceType = null,
+  sourceUrl = null,
+  provider = null
 }) {
   const existing = db.prepare('SELECT * FROM picks WHERE id = ?').get(id);
   if (!existing) return null;
@@ -272,7 +287,7 @@ function updatePickSettlement(id, {
 
   db.prepare(`
     UPDATE picks
-    SET result = ?, closing_line = ?, clv = ?, verified_final_at = ?, settled_at = ?, settlement_reason = ?, settlement_source = ?
+    SET result = ?, closing_line = ?, clv = ?, verified_final_at = ?, settled_at = ?, settlement_reason = ?, settlement_source = ?, settlement_source_type = ?, settlement_source_url = ?, settlement_provider = ?
     WHERE id = ?
   `).run(
     nextResult,
@@ -282,6 +297,9 @@ function updatePickSettlement(id, {
     settledAt,
     reason || null,
     source || null,
+    sourceType || null,
+    sourceUrl || null,
+    provider || null,
     id
   );
 
@@ -295,7 +313,10 @@ function updatePickSettlement(id, {
       reason,
       closingLine: nextClosingLine,
       clv: nextClv,
-      provider: source
+      sourceLabel: source,
+      sourceType,
+      sourceUrl,
+      provider
     });
   }
 
@@ -402,7 +423,9 @@ function getAllTimeRecord() {
       COUNT(*) as audit_events,
       SUM(CASE WHEN action = 'reverted_to_pending' THEN 1 ELSE 0 END) as reversions,
       SUM(CASE WHEN action = 'corrected_result' THEN 1 ELSE 0 END) as corrections,
-      SUM(CASE WHEN action = 'settled' THEN 1 ELSE 0 END) as auto_settled
+      SUM(CASE WHEN action = 'settled' THEN 1 ELSE 0 END) as auto_settled,
+      SUM(CASE WHEN source_type IS NOT NULL AND source_type != 'fallback_scoreboard' THEN 1 ELSE 0 END) as authoritative_sources,
+      SUM(CASE WHEN source_type = 'fallback_scoreboard' THEN 1 ELSE 0 END) as fallback_sources
     FROM settlement_audit
   `).get());
 
@@ -526,7 +549,21 @@ function getHistory(page = 1, limit = 50) {
         WHERE sa.pick_id = p.id
         ORDER BY sa.id DESC
         LIMIT 1
-      ) as last_settlement_at
+      ) as last_settlement_at,
+      (
+        SELECT sa.source_label
+        FROM settlement_audit sa
+        WHERE sa.pick_id = p.id
+        ORDER BY sa.id DESC
+        LIMIT 1
+      ) as last_settlement_source,
+      (
+        SELECT sa.source_type
+        FROM settlement_audit sa
+        WHERE sa.pick_id = p.id
+        ORDER BY sa.id DESC
+        LIMIT 1
+      ) as last_settlement_source_type
     FROM picks p
     ORDER BY p.date DESC, p.id DESC
     LIMIT ? OFFSET ?
