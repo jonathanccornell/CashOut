@@ -34,6 +34,10 @@ export default function LockOfDay({ lock }) {
 
   const confPct = Math.min(100, Math.max(0, lock.confidence));
   const lineValue = lock.line ?? (typeof lock.pick === 'string' ? lock.pick.match(/([+-]?\d+(?:\.\d+)?)/)?.[1] : null);
+  const lockTier = lock.lock_tier || 'Flagship';
+  const settlementLabel = lock.verified_final_at
+    ? `Verified final ${new Date(lock.verified_final_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+    : 'Awaiting verified final';
 
   return (
     <div className="mb-4 premium-panel gold-frame texture-grid market-grid relative rounded-[32px] overflow-hidden border border-neon/16 shadow-[0_22px_70px_rgba(0,255,133,0.08)]">
@@ -47,7 +51,7 @@ export default function LockOfDay({ lock }) {
               <span className="text-gold text-base">♛</span>
               <span className="text-[10px] font-black text-neon uppercase tracking-[0.28em]">Lock of the Day</span>
               <span className="rounded-full border border-neon/14 bg-neon/[0.06] px-2 py-0.5 text-[9px] font-bold text-neon/85 uppercase tracking-[0.18em]">
-                Flagship play
+                {lockTier} lock
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -58,6 +62,12 @@ export default function LockOfDay({ lock }) {
                 <>
                   <span className="text-white/10">•</span>
                   <span className="text-[10px] text-white/26 uppercase tracking-[0.16em]">Line {lineValue}</span>
+                </>
+              )}
+              {lock.ai_provider && (
+                <>
+                  <span className="text-white/10">•</span>
+                  <span className="text-[10px] text-blue-200/70 uppercase tracking-[0.16em]">{lock.ai_provider}</span>
                 </>
               )}
               {lock.created_at && (
@@ -85,9 +95,10 @@ export default function LockOfDay({ lock }) {
 
             <PickOutcomeControl result={lock.result} pendingLabel="Awaiting final" />
 
-            <div className="premium-panel rounded-[22px] px-3.5 py-2.5 min-w-[88px] text-right">
+            <div className="premium-panel rounded-[22px] px-3.5 py-2.5 min-w-[104px] text-right">
               <div className="font-display text-neon font-bold text-[1.7rem] tabular leading-none tracking-[-0.05em]">{lock.confidence}</div>
               <div className="text-[9px] text-white/18 uppercase tracking-[0.22em] mt-1">Model grade</div>
+              {lock.lock_score && <div className="text-[10px] text-white/35 mt-1">score {Number(lock.lock_score).toFixed(0)}</div>}
             </div>
           </div>
         </div>
@@ -103,6 +114,17 @@ export default function LockOfDay({ lock }) {
           <span className="rounded-full border border-neon/18 bg-neon/[0.07] px-3 py-1.5 text-neon/90 text-sm font-bold uppercase tracking-[0.16em]">
             {lock.odds}
           </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <span className="rounded-full border border-blue-300/12 bg-blue-300/[0.06] px-3 py-1 text-[10px] font-bold text-blue-100/80 uppercase tracking-[0.16em]">
+            {settlementLabel}
+          </span>
+          {lock.lock_tier && (
+            <span className="rounded-full border border-gold/20 bg-gold/10 px-3 py-1 text-[10px] font-bold text-gold uppercase tracking-[0.16em]">
+              {lock.lock_tier} standard
+            </span>
+          )}
         </div>
 
         {signals.length > 0 && (

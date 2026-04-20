@@ -53,6 +53,14 @@ try { db.exec('ALTER TABLE picks ADD COLUMN clv REAL DEFAULT NULL'); } catch {}
 try { db.exec('ALTER TABLE picks ADD COLUMN kelly_units REAL DEFAULT 1.0'); } catch {}
 try { db.exec('ALTER TABLE picks ADD COLUMN situations TEXT DEFAULT "[]"'); } catch {}
 try { db.exec('ALTER TABLE picks ADD COLUMN line TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN ai_provider TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN selection_score REAL DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN lock_score REAL DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN lock_tier TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN verified_final_at TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN settled_at TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN settlement_reason TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE picks ADD COLUMN settlement_source TEXT DEFAULT NULL'); } catch {}
 
 // Signal performance tracking
 try {
@@ -88,6 +96,21 @@ try {
       notes TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS settlement_audit (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pick_id INTEGER NOT NULL,
+      previous_result TEXT,
+      new_result TEXT NOT NULL,
+      action TEXT NOT NULL,
+      final_confirmed INTEGER DEFAULT 0,
+      reason TEXT,
+      closing_line TEXT,
+      clv REAL,
+      provider TEXT,
+      audited_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(pick_id) REFERENCES picks(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_settlement_audit_pick_id ON settlement_audit(pick_id);
   `);
 } catch {}
 
@@ -158,8 +181,11 @@ function getPicksByDate(date) {
 
 function insertPick(pick) {
   const stmt = db.prepare(`
-    INSERT INTO picks (date, sport, matchup, pick, bet_type, odds, confidence, reasoning, is_lock, units, signals, kelly_units, situations, line)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO picks (
+      date, sport, matchup, pick, bet_type, odds, confidence, reasoning, is_lock, units,
+      signals, kelly_units, situations, line, ai_provider, selection_score, lock_score, lock_tier
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const betType = pick.betType || pick.bet_type;
   return stmt.run(
@@ -176,12 +202,111 @@ function insertPick(pick) {
     JSON.stringify(Array.isArray(pick.signals) ? pick.signals : []),
     pick.kelly_units || 1.0,
     JSON.stringify([]),
-    pick.line || extractBetLine(pick.pick, betType)
+    pick.line || extractBetLine(pick.pick, betType),
+    pick.ai_provider || null,
+    Number.isFinite(pick.selection_score) ? pick.selection_score : null,
+    Number.isFinite(pick.lock_score) ? pick.lock_score : null,
+    pick.lock_tier || null
   );
 }
 
 function updatePickResult(id, result) {
   return db.prepare('UPDATE picks SET result = ? WHERE id = ?').run(result, id);
+}
+
+function recordSettlementAudit({
+  pickId,
+  previousResult,
+  newResult,
+  action,
+  finalConfirmed = false,
+  reason = null,
+  closingLine = null,
+  clv = null,
+  provider = null
+}) {
+  return db.prepare(`
+    INSERT INTO settlement_audit (
+      pick_id, previous_result, new_result, action, final_confirmed, reason, closing_line, clv, provider
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    pickId,
+    previousResult || null,
+    newResult,
+    action,
+    finalConfirmed ? 1 : 0,
+    reason || null,
+    closingLine || null,
+    Number.isFinite(clv) ? clv : null,
+    provider || null
+  );
+}
+
+function updatePickSettlement(id, {
+  result,
+  closingLine = undefined,
+  clv = undefined,
+  finalConfirmed = false,
+  reason = null,
+  source = null
+}) {
+  const existing = db.prepare('SELECT * FROM picks WHERE id = ?').get(id);
+  if (!existing) return null;
+
+  const nextResult = result || existing.result || 'Pending';
+  const nextClosingLine = closingLine === undefined ? existing.closing_line : closingLine;
+  const nextClv = clv === undefined ? existing.clv : clv;
+  const wasSettled = existing.result && existing.result !== 'Pending';
+  const isSettled = nextResult !== 'Pending';
+  const now = new Date().toISOString();
+
+  let action = null;
+  if (!wasSettled && isSettled) action = 'settled';
+  else if (wasSettled && !isSettled) action = 'reverted_to_pending';
+  else if (wasSettled && isSettled && existing.result !== nextResult) action = 'corrected_result';
+  else if (isSettled && (existing.closing_line !== nextClosingLine || existing.clv !== nextClv)) action = 'settlement_refined';
+  else if (reason && reason !== existing.settlement_reason) action = 'reconfirmed';
+
+  const verifiedFinalAt = finalConfirmed && isSettled ? (existing.verified_final_at || now) : null;
+  const settledAt = isSettled ? (existing.settled_at || now) : null;
+
+  db.prepare(`
+    UPDATE picks
+    SET result = ?, closing_line = ?, clv = ?, verified_final_at = ?, settled_at = ?, settlement_reason = ?, settlement_source = ?
+    WHERE id = ?
+  `).run(
+    nextResult,
+    nextClosingLine || null,
+    Number.isFinite(nextClv) ? nextClv : null,
+    verifiedFinalAt,
+    settledAt,
+    reason || null,
+    source || null,
+    id
+  );
+
+  if (action) {
+    recordSettlementAudit({
+      pickId: id,
+      previousResult: existing.result,
+      newResult: nextResult,
+      action,
+      finalConfirmed,
+      reason,
+      closingLine: nextClosingLine,
+      clv: nextClv,
+      provider: source
+    });
+  }
+
+  return {
+    previous: existing,
+    action,
+    nextResult,
+    nextClosingLine,
+    nextClv,
+    finalConfirmed
+  };
 }
 
 function todayPicksExist() {
@@ -264,6 +389,29 @@ function getAllTimeRecord() {
   const safeLocks = normalizeCounts(locks);
   const safeParlays = normalizeCounts(parlays);
 
+  const trustCounts = normalizeCounts(db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN verified_final_at IS NOT NULL THEN 1 ELSE 0 END) as verified,
+      SUM(CASE WHEN settled_at IS NOT NULL THEN 1 ELSE 0 END) as settled
+    FROM picks
+  `).get());
+
+  const trustAudit = normalizeCounts(db.prepare(`
+    SELECT
+      COUNT(*) as audit_events,
+      SUM(CASE WHEN action = 'reverted_to_pending' THEN 1 ELSE 0 END) as reversions,
+      SUM(CASE WHEN action = 'corrected_result' THEN 1 ELSE 0 END) as corrections,
+      SUM(CASE WHEN action = 'settled' THEN 1 ELSE 0 END) as auto_settled
+    FROM settlement_audit
+  `).get());
+
+  const latestVerifiedAt = db.prepare(`
+    SELECT MAX(verified_final_at) as latest_verified_at
+    FROM picks
+    WHERE verified_final_at IS NOT NULL
+  `).get()?.latest_verified_at || null;
+
   const totalRisk = decidedRows.reduce((sum, pick) => sum + (Number(pick.units) || 1), 0);
   const totalProfit = decidedRows.reduce((sum, pick) => sum + getPickProfit(pick), 0);
   const roi = totalRisk > 0 ? ((totalProfit / totalRisk) * 100).toFixed(1) : '0.0';
@@ -326,24 +474,63 @@ function getAllTimeRecord() {
   const lockRisk = lockRows.reduce((sum, pick) => sum + (Number(pick.units) || 1), 0);
   const lockProfit = lockRows.reduce((sum, pick) => sum + getPickProfit(pick), 0);
   const decided = safePicks.wins + safePicks.losses;
+  const lockProfile = normalizeCounts(db.prepare(`
+    SELECT
+      AVG(lock_score) as avg_score,
+      SUM(CASE WHEN lock_tier = 'Apex' THEN 1 ELSE 0 END) as apex_count,
+      SUM(CASE WHEN lock_tier = 'Elite' THEN 1 ELSE 0 END) as elite_count,
+      SUM(CASE WHEN verified_final_at IS NOT NULL THEN 1 ELSE 0 END) as verified
+    FROM picks
+    WHERE is_lock = 1
+  `).get());
 
   return {
     picks: { ...safePicks, winRate: decided > 0 ? ((safePicks.wins / decided) * 100).toFixed(1) : '0.0' },
     locks: {
       ...safeLocks,
       streak: lockStreak > 0 ? `${lockStreak}${lockStreakType}` : null,
-      roi: lockRisk > 0 ? ((lockProfit / lockRisk) * 100).toFixed(1) : '0.0'
+      roi: lockRisk > 0 ? ((lockProfit / lockRisk) * 100).toFixed(1) : '0.0',
+      avgScore: lockProfile.avg_score ? Number(lockProfile.avg_score).toFixed(1) : null,
+      apexCount: lockProfile.apex_count || 0,
+      eliteCount: lockProfile.elite_count || 0,
+      verified: lockProfile.verified || 0
     },
     parlays: safeParlays,
     roi,
     streak: streak > 0 ? `${streak}${streakType}` : '0-0',
-    bySport
+    bySport,
+    settlement: {
+      ...trustCounts,
+      ...trustAudit,
+      verifiedRate: trustCounts.settled > 0 ? ((trustCounts.verified / trustCounts.settled) * 100).toFixed(1) : '0.0',
+      latestVerifiedAt
+    }
   };
 }
 
 function getHistory(page = 1, limit = 50) {
   const offset = (page - 1) * limit;
-  const picks = db.prepare('SELECT * FROM picks ORDER BY date DESC, id DESC LIMIT ? OFFSET ?').all(limit, offset);
+  const picks = db.prepare(`
+    SELECT
+      p.*,
+      (
+        SELECT sa.action
+        FROM settlement_audit sa
+        WHERE sa.pick_id = p.id
+        ORDER BY sa.id DESC
+        LIMIT 1
+      ) as last_settlement_action,
+      (
+        SELECT sa.audited_at
+        FROM settlement_audit sa
+        WHERE sa.pick_id = p.id
+        ORDER BY sa.id DESC
+        LIMIT 1
+      ) as last_settlement_at
+    FROM picks p
+    ORDER BY p.date DESC, p.id DESC
+    LIMIT ? OFFSET ?
+  `).all(limit, offset);
   const total = db.prepare('SELECT COUNT(*) as count FROM picks').get().count;
   return { picks, total, page, totalPages: Math.ceil(total / limit) };
 }
@@ -359,6 +546,7 @@ function resetAllRecords() {
     db.prepare('DELETE FROM signal_performance').run();
     db.prepare('DELETE FROM situational_patterns').run();
     db.prepare('DELETE FROM official_tendencies').run();
+    db.prepare('DELETE FROM settlement_audit').run();
     db.prepare('DELETE FROM model_learnings').run();
     db.prepare('DELETE FROM learning_runs').run();
     db.prepare('DELETE FROM daily_analysis').run();
@@ -370,6 +558,7 @@ function resetAllRecords() {
         'signal_performance',
         'situational_patterns',
         'official_tendencies',
+        'settlement_audit',
         'model_learnings',
         'learning_runs',
         'daily_analysis'
@@ -413,6 +602,8 @@ module.exports = {
   getTodayParlays,
   insertParlay,
   updateParlayResult,
+  updatePickSettlement,
+  recordSettlementAudit,
   getAllTimeRecord,
   getHistory,
   getAllPicksForExport,

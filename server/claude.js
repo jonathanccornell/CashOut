@@ -474,27 +474,8 @@ function isPlayableFallbackCandidate(pick) {
 }
 
 function qualifyLockCandidate(lockPick, rankedPicks, learnings) {
-  if (!lockPick) return null;
-
-  const scoredLock = {
-    ...lockPick,
-    selection_score: Number.isFinite(lockPick.selection_score)
-      ? lockPick.selection_score
-      : scorePickQuality(lockPick, learnings),
-  };
-
-  const { marketSignalCount, advancedSignalCount, numericEvidenceCount, reasoning } = getPickEvidenceProfile(scoredLock);
-  const nextBestScore = rankedPicks[0]?.selection_score || 0;
-  const scoreGap = scoredLock.selection_score - nextBestScore;
-
-  if ((Number(scoredLock.confidence) || 0) < 86) return null;
-  if (scoredLock.selection_score < 88) return null;
-  if (reasoning.length < 140) return null;
-  if (numericEvidenceCount < 4) return null;
-  if (marketSignalCount < 1 && advancedSignalCount < 3) return null;
-  if (scoreGap < 3) return null;
-
-  return scoredLock;
+  const profile = buildLockProfile(lockPick, rankedPicks, learnings);
+  return profile?.lock_tier ? profile : null;
 }
 
 function applyLearningsAdjustment(pick, learnings) {
@@ -615,7 +596,62 @@ function sanitizeGeneratedPick(pick) {
     reasoning: pick.reasoning || '',
     player: pick.player || null,
     stat: pick.stat || null,
+    selection_score: Number.isFinite(pick.selection_score) ? pick.selection_score : null,
+    lock_score: Number.isFinite(pick.lock_score) ? pick.lock_score : null,
+    lock_tier: pick.lock_tier || null,
     kelly_units: calculateKellyUnits(conf, oddsStr)
+  };
+}
+
+function buildLockProfile(lockPick, rankedPicks, learnings) {
+  if (!lockPick) return null;
+
+  const scoredLock = {
+    ...lockPick,
+    selection_score: Number.isFinite(lockPick.selection_score)
+      ? lockPick.selection_score
+      : scorePickQuality(lockPick, learnings),
+  };
+
+  const { marketSignalCount, advancedSignalCount, numericEvidenceCount, reasoning } = getPickEvidenceProfile(scoredLock);
+  const nextBestScore = rankedPicks[0]?.selection_score || 0;
+  const scoreGap = scoredLock.selection_score - nextBestScore;
+
+  const qualificationChecks = [
+    { ok: (Number(scoredLock.confidence) || 0) >= 86, label: '86+ confidence' },
+    { ok: scoredLock.selection_score >= 88, label: '88+ selection score' },
+    { ok: reasoning.length >= 140, label: 'full thesis depth' },
+    { ok: numericEvidenceCount >= 4, label: 'numeric proof' },
+    { ok: marketSignalCount >= 1 || advancedSignalCount >= 3, label: 'market or matchup edge' },
+    { ok: scoreGap >= 3, label: 'clear top-play separation' },
+  ];
+
+  let lockTier = null;
+  if (
+    (Number(scoredLock.confidence) || 0) >= 90 &&
+    scoredLock.selection_score >= 92 &&
+    numericEvidenceCount >= 6 &&
+    scoreGap >= 5 &&
+    marketSignalCount >= 1
+  ) {
+    lockTier = 'Apex';
+  } else if (qualificationChecks.every(check => check.ok) && scoredLock.selection_score >= 90) {
+    lockTier = 'Elite';
+  } else if (qualificationChecks.every(check => check.ok)) {
+    lockTier = 'Qualified';
+  }
+
+  return {
+    ...scoredLock,
+    lock_score: scoredLock.selection_score,
+    lock_tier: lockTier,
+    lock_checks: qualificationChecks
+      .filter(check => check.ok)
+      .map(check => check.label),
+    score_gap: scoreGap,
+    numeric_evidence_count: numericEvidenceCount,
+    market_signal_count: marketSignalCount,
+    advanced_signal_count: advancedSignalCount,
   };
 }
 
@@ -658,6 +694,20 @@ function parseGeneratedCard(finalText, learnings) {
   const jsonMatch = finalText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('No valid JSON in response');
   return finalizeGeneratedCard(JSON.parse(jsonMatch[0]), learnings);
+}
+
+function attachProviderMetadata(card, provider) {
+  const decorate = (pick) => ({
+    ...pick,
+    ai_provider: provider,
+  });
+
+  return {
+    ...card,
+    provider,
+    lock: card.lock ? decorate(card.lock) : null,
+    picks: (card.picks || []).map(decorate),
+  };
 }
 
 // Kelly Criterion unit sizing using conservative win-prob mapping and 1/8 Kelly
@@ -787,7 +837,7 @@ Return ONLY the JSON object. Nothing else.`;
 
         if (parsed.lock || parsed.picks.length > 0 || parsed.parlays.length > 0) {
           console.log(`[CashOut] Generated via ${provider}: 1 Lock + ${parsed.picks.length} picks + ${parsed.parlays.length} parlays`);
-          return parsed;
+          return attachProviderMetadata(parsed, provider);
         }
 
         console.log(`[CashOut] ${PROVIDER_LABELS[provider] || provider} returned an empty card, retrying narrow-slate rescue...`);
@@ -800,7 +850,7 @@ Return ONLY the JSON object. Nothing else.`;
 
         if (rescueCard.lock || rescueCard.picks.length > 0 || rescueCard.parlays.length > 0) {
           console.log(`[CashOut] Rescue card generated via ${provider}: 1 Lock + ${rescueCard.picks.length} picks + ${rescueCard.parlays.length} parlays`);
-          return rescueCard;
+          return attachProviderMetadata(rescueCard, provider);
         }
 
         console.log(`[CashOut] ${PROVIDER_LABELS[provider] || provider} rescue scan still returned an empty card, trying next provider...`);
@@ -914,7 +964,7 @@ Rules:
 - Be extremely conservative: a false Pending is acceptable; a false win/loss is not.`;
 
   try {
-    const { text: finalText } = await runPromptAcrossProviders({
+    const { text: finalText, provider } = await runPromptAcrossProviders({
       taskName: 'Pick grading',
       system: '',
       prompt,
@@ -928,7 +978,7 @@ Rules:
 
     const jsonMatch = finalText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) throw new Error('No JSON array in response');
-    return JSON.parse(jsonMatch[0]);
+    return JSON.parse(jsonMatch[0]).map(result => ({ ...result, graded_by: provider }));
   } catch (err) {
     console.error('[CashOut] Grade error:', err.message);
     return [];

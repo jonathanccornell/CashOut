@@ -12,7 +12,7 @@ const chatRouter = require('./routes/chat');
 // const stripeRouter = require('./routes/stripe');                // enable when ready
 const learningsRouter = require('./routes/learnings');
 const { scheduleLearning, runDailyPostGameAnalysis, updateSignalPerformance, calculateCLV, saveSituationalPatterns, trackOfficialsFromAnalysis } = require('./learning');
-const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, db } = require('./db');
+const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, updatePickSettlement, db } = require('./db');
 const { generatePicks, gradePicks } = require('./claude');
 
 const app = express();
@@ -101,6 +101,10 @@ async function autoGeneratePicks() {
         pick: result.lock.pick, betType: result.lock.betType, odds: result.lock.odds,
         confidence: result.lock.confidence, reasoning: result.lock.reasoning,
         signals: result.lock.signals, line: result.lock.line, isLock: true,
+        ai_provider: result.lock.ai_provider || result.provider || null,
+        selection_score: result.lock.selection_score,
+        lock_score: result.lock.lock_score,
+        lock_tier: result.lock.lock_tier,
         units: result.lock.kelly_units || 2.0,
         kelly_units: result.lock.kelly_units || 2.0 });
     }
@@ -109,6 +113,8 @@ async function autoGeneratePicks() {
         pick: pick.pick, betType: pick.betType, odds: pick.odds,
         confidence: pick.confidence, reasoning: pick.reasoning,
         signals: pick.signals, line: pick.line, isLock: false,
+        ai_provider: pick.ai_provider || result.provider || null,
+        selection_score: pick.selection_score,
         units: pick.kelly_units || 1.0,
         kelly_units: pick.kelly_units || 1.0 });
     }
@@ -163,8 +169,14 @@ async function autoGradePicks() {
           clv = calculateCLV(fullPick, r.closing_line);
         }
 
-        db.prepare('UPDATE picks SET result = ?, closing_line = ?, clv = ? WHERE id = ?')
-          .run(r.result, r.closing_line || null, clv, r.id);
+        updatePickSettlement(r.id, {
+          result: r.result,
+          closingLine: r.closing_line || null,
+          clv,
+          finalConfirmed: true,
+          reason: r.reason || null,
+          source: r.graded_by || 'auto-grader'
+        });
 
         if (!wasSettled) {
           updateSignalPerformance(fullPick, r.result, clv);
@@ -173,8 +185,14 @@ async function autoGradePicks() {
 
         console.log(`[CashOut] Pick ${r.id} graded: ${r.result} | CLV: ${clv !== null ? clv.toFixed(2) : 'N/A'} — ${r.reason}`);
       } else if (r.final_confirmed === false && wasSettled && fullPick.date === todayET) {
-        db.prepare('UPDATE picks SET result = ?, closing_line = NULL, clv = NULL WHERE id = ?')
-          .run('Pending', r.id);
+        updatePickSettlement(r.id, {
+          result: 'Pending',
+          closingLine: null,
+          clv: null,
+          finalConfirmed: false,
+          reason: r.reason || 'Game not officially final',
+          source: r.graded_by || 'auto-grader'
+        });
         console.log(`[CashOut] Pick ${r.id} reverted to Pending — game not officially final.`);
       }
     }

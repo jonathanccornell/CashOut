@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const { calculateCLV } = require('../learning');
 const {
   getTodayPicks,
   getTodayLock,
   insertPick,
-  updatePickResult,
+  updatePickSettlement,
   todayPicksExist,
   clearTodayPicks,
   insertParlay,
@@ -76,6 +77,10 @@ router.post('/generate', async (req, res) => {
         signals: result.lock.signals,
         line: result.lock.line,
         isLock: true,
+        ai_provider: result.lock.ai_provider || result.provider || null,
+        selection_score: result.lock.selection_score,
+        lock_score: result.lock.lock_score,
+        lock_tier: result.lock.lock_tier,
         units: result.lock.kelly_units || 1.0,
         kelly_units: result.lock.kelly_units || 1.0
       });
@@ -95,6 +100,8 @@ router.post('/generate', async (req, res) => {
         signals: pick.signals,
         line: pick.line,
         isLock: false,
+        ai_provider: pick.ai_provider || result.provider || null,
+        selection_score: pick.selection_score,
         units: pick.kelly_units || 1.0,
         kelly_units: pick.kelly_units || 1.0
       });
@@ -136,7 +143,16 @@ router.post('/grade', async (req, res) => {
     const results = await gradePicks(pending);
     for (const r of results) {
       if (r.final_confirmed === true && r.result && r.result !== 'Pending') {
-        db.prepare('UPDATE picks SET result = ? WHERE id = ?').run(r.result, r.id);
+        const fullPick = db.prepare('SELECT * FROM picks WHERE id = ?').get(r.id);
+        const clv = fullPick && r.closing_line ? calculateCLV(fullPick, r.closing_line) : null;
+        updatePickSettlement(r.id, {
+          result: r.result,
+          closingLine: r.closing_line || null,
+          clv,
+          finalConfirmed: true,
+          reason: r.reason || null,
+          source: r.graded_by || 'manual-grade-run'
+        });
       }
     }
     res.json({ graded: results });
@@ -167,7 +183,12 @@ router.patch('/:id/result', (req, res) => {
   if (!['W', 'L', 'Push', 'Pending'].includes(result)) {
     return res.status(400).json({ error: 'Result must be W, L, Push, or Pending' });
   }
-  updatePickResult(req.params.id, result);
+  updatePickSettlement(req.params.id, {
+    result,
+    finalConfirmed: result !== 'Pending',
+    reason: 'Manual override',
+    source: 'manual-override'
+  });
   res.json({ message: 'Result updated' });
 });
 

@@ -34,7 +34,7 @@ export default function RecordDashboard({ record }) {
     return <div className="text-center py-16 text-white/20 text-sm">Generate picks to start tracking your record.</div>;
   }
 
-  const { picks, locks, parlays, roi, streak, bySport = [] } = record;
+  const { picks, locks, parlays, roi, streak, bySport = [], settlement = {} } = record;
   const roiPositive = parseFloat(roi) >= 0;
   const freshStart = picks.total === 0 && parlays.total === 0;
   const decided = picks.wins + picks.losses;
@@ -46,6 +46,9 @@ export default function RecordDashboard({ record }) {
     winRateValue >= 53 ? 'Positive edge' :
     winRateValue >= 50 ? 'Building sample' :
     'Needs lift';
+  const verifiedLabel = settlement.latestVerifiedAt
+    ? new Date(settlement.latestVerifiedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : 'Waiting for first verified final';
 
   if (freshStart) {
     return (
@@ -230,9 +233,54 @@ export default function RecordDashboard({ record }) {
               </span>
             )}
           </div>
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            <div>
+              <div className="font-display text-[1.1rem] text-white tracking-[-0.04em]">{locks.avgScore || '—'}</div>
+              <div className="text-[10px] text-white/20 uppercase tracking-[0.16em]">avg lock score</div>
+            </div>
+            <div>
+              <div className="font-display text-[1.1rem] text-gold tracking-[-0.04em]">{locks.apexCount || 0}</div>
+              <div className="text-[10px] text-white/20 uppercase tracking-[0.16em]">apex locks</div>
+            </div>
+            <div>
+              <div className="font-display text-[1.1rem] text-blue-200 tracking-[-0.04em]">{locks.verified || 0}</div>
+              <div className="text-[10px] text-white/20 uppercase tracking-[0.16em]">verified finals</div>
+            </div>
+          </div>
         </div>
 
-        <div className="premium-panel panel-hover border border-white/[0.06] rounded-[28px] p-5">
+        <div className="premium-panel panel-hover border border-blue-400/15 rounded-[28px] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-[10px] font-black text-blue-200/80 uppercase tracking-widest">Settlement Trust</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <div>
+              <div className="font-display text-[1.65rem] text-white tabular tracking-[-0.05em]">{settlement.verifiedRate || '0.0'}%</div>
+              <div className="text-xs text-white/20 mt-0.5">verified rate</div>
+            </div>
+            <div className="h-8 w-px bg-white/5" />
+            <div>
+              <div className="font-display text-[1.65rem] text-blue-200 tabular tracking-[-0.05em]">{settlement.audit_events || 0}</div>
+              <div className="text-xs text-white/20 mt-0.5">audit events</div>
+            </div>
+            <div className="h-8 w-px bg-white/5" />
+            <div>
+              <div className="font-display text-[1.65rem] text-white/30 tabular tracking-[-0.05em]">{settlement.reversions || 0}</div>
+              <div className="text-xs text-white/20 mt-0.5">reversions</div>
+            </div>
+          </div>
+          <div className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-white/20">Latest verified final</div>
+            <div className="text-sm text-white/65 mt-1">{verifiedLabel}</div>
+            <div className="flex items-center gap-4 mt-3 text-[10px] uppercase tracking-[0.16em] text-white/24">
+              <span>{settlement.auto_settled || 0} auto-settled</span>
+              <span>{settlement.corrections || 0} corrections</span>
+              <span>{settlement.settled || 0} settled</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="premium-panel panel-hover border border-white/[0.06] rounded-[28px] p-5 sm:col-span-2">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Parlays</span>
           </div>

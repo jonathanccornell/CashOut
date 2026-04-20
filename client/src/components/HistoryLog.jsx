@@ -98,6 +98,33 @@ export default function HistoryLog() {
                       </span>
                       <span className="text-white/12">•</span>
                       <span className="text-[10px] text-white/22 uppercase tracking-[0.16em]">{pick.bet_type || pick.betType || 'Pick'}</span>
+                      {pick.ai_provider && (
+                        <>
+                          <span className="text-white/12">•</span>
+                          <span className="text-[10px] text-blue-200/70 uppercase tracking-[0.16em]">{pick.ai_provider}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      {pick.verified_final_at ? (
+                        <span className="text-[10px] text-blue-100/75 border border-blue-300/12 bg-blue-300/[0.05] rounded-full px-2 py-0.5 uppercase tracking-[0.14em]">
+                          Verified final
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-white/28 border border-white/[0.08] bg-white/[0.03] rounded-full px-2 py-0.5 uppercase tracking-[0.14em]">
+                          Awaiting verified final
+                        </span>
+                      )}
+                      {pick.lock_tier && (
+                        <span className="text-[10px] text-gold border border-gold/18 bg-gold/10 rounded-full px-2 py-0.5 uppercase tracking-[0.14em]">
+                          {pick.lock_tier} lock
+                        </span>
+                      )}
+                      {pick.clv !== null && pick.clv !== undefined && (
+                        <span className={`text-[10px] border rounded-full px-2 py-0.5 uppercase tracking-[0.14em] ${Number(pick.clv) >= 0 ? 'text-neon border-neon/18 bg-neon/[0.06]' : 'text-red-400 border-red-400/18 bg-red-400/10'}`}>
+                          {Number(pick.clv) >= 0 ? '+' : ''}{Number(pick.clv).toFixed(1)} CLV
+                        </span>
+                      )}
                     </div>
                   </div>
 
