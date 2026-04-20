@@ -918,7 +918,7 @@ async function gradePicks(pendingPicks) {
   if (!pendingPicks || pendingPicks.length === 0) return [];
 
   const pickList = pendingPicks.map(p =>
-    `ID ${p.id}: ${p.sport} | ${p.matchup} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.line || p.odds}`
+    `ID ${p.id}: ${p.sport} | ${p.matchup} | GameDateET: ${p.date} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.line || p.odds}`
   ).join('\n');
 
   const sourceRules = `AUTHORITATIVE SOURCE RULES BY SPORT
@@ -940,10 +940,11 @@ ${sourceRules}
 
 For each pick:
 1. Search for an authoritative game page or box score and determine whether the game is officially FINAL.
-2. If the game is NOT officially final, return "Pending" and set "final_confirmed" to false.
-3. Only if the game IS officially final, determine if the pick won (W), lost (L), or pushed (Push), and set "final_confirmed" to true.
-4. Find the CLOSING LINE for the bet — the final spread/total/moneyline just before game time.
-5. Identify the authoritative source used to verify final status.
+2. The verified event MUST match the exact GameDateET provided for the pick. If search results are for a different date, earlier game in the same series, or a prior matchup between the same teams, return Pending.
+3. If the game is NOT officially final, return "Pending" and set "final_confirmed" to false.
+4. Only if the game IS officially final AND matches the exact GameDateET, determine if the pick won (W), lost (L), or pushed (Push), and set "final_confirmed" to true.
+5. Find the CLOSING LINE for the bet — the final spread/total/moneyline just before game time.
+6. Identify the authoritative source used to verify final status.
 
 Return ONLY a JSON array:
 [
@@ -953,6 +954,7 @@ Return ONLY a JSON array:
     "result": "W",
     "reason": "Team A won 108-102, covered -3.5",
     "closing_line": "-5",
+    "source_event_date": "2026-04-20",
     "source_label": "NBA.com official box score",
     "source_type": "official_league",
     "source_url": "https://www.nba.com/game/..."
@@ -982,8 +984,9 @@ Rules:
     "id": <id>,
     "final_confirmed": false,
     "result": "Pending",
-    "reason": "Game not officially final",
+    "reason": "Game not officially final or exact game date could not be verified",
     "closing_line": null,
+    "source_event_date": null,
     "source_label": null,
     "source_type": null,
     "source_url": null

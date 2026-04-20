@@ -162,8 +162,9 @@ async function autoGradePicks() {
       if (!fullPick) continue;
 
       const wasSettled = fullPick.result && fullPick.result !== 'Pending';
+      const exactDateMatch = !r.source_event_date || r.source_event_date === fullPick.date;
 
-      if (r.final_confirmed === true && r.result && r.result !== 'Pending') {
+      if (r.final_confirmed === true && exactDateMatch && r.result && r.result !== 'Pending') {
         let clv = null;
         if (r.closing_line) {
           clv = calculateCLV(fullPick, r.closing_line);
@@ -187,19 +188,19 @@ async function autoGradePicks() {
         }
 
         console.log(`[CashOut] Pick ${r.id} graded: ${r.result} | CLV: ${clv !== null ? clv.toFixed(2) : 'N/A'} — ${r.reason}`);
-      } else if (r.final_confirmed === false && wasSettled && fullPick.date === todayET) {
+      } else if ((!exactDateMatch || r.final_confirmed === false) && wasSettled && fullPick.date === todayET) {
         updatePickSettlement(r.id, {
           result: 'Pending',
           closingLine: null,
           clv: null,
           finalConfirmed: false,
-          reason: r.reason || 'Game not officially final',
+          reason: exactDateMatch ? (r.reason || 'Game not officially final') : `Grader matched ${r.source_event_date}; expected ${fullPick.date}`,
           source: r.source_label || null,
           sourceType: r.source_type || null,
           sourceUrl: r.source_url || null,
           provider: r.graded_by || 'auto-grader'
         });
-        console.log(`[CashOut] Pick ${r.id} reverted to Pending — game not officially final.`);
+        console.log(`[CashOut] Pick ${r.id} reverted to Pending — ${exactDateMatch ? 'game not officially final' : 'grader matched wrong game date'}.`);
       }
     }
 

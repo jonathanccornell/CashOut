@@ -142,8 +142,10 @@ router.post('/grade', async (req, res) => {
     if (pending.length === 0) return res.json({ message: 'No pending picks to grade' });
     const results = await gradePicks(pending);
     for (const r of results) {
-      if (r.final_confirmed === true && r.result && r.result !== 'Pending') {
-        const fullPick = db.prepare('SELECT * FROM picks WHERE id = ?').get(r.id);
+      const fullPick = db.prepare('SELECT * FROM picks WHERE id = ?').get(r.id);
+      if (!fullPick) continue;
+      const exactDateMatch = !r.source_event_date || r.source_event_date === fullPick.date;
+      if (r.final_confirmed === true && exactDateMatch && r.result && r.result !== 'Pending') {
         const clv = fullPick && r.closing_line ? calculateCLV(fullPick, r.closing_line) : null;
         updatePickSettlement(r.id, {
           result: r.result,
@@ -151,6 +153,18 @@ router.post('/grade', async (req, res) => {
           clv,
           finalConfirmed: true,
           reason: r.reason || null,
+          source: r.source_label || null,
+          sourceType: r.source_type || null,
+          sourceUrl: r.source_url || null,
+          provider: r.graded_by || 'manual-grade-run'
+        });
+      } else if (!exactDateMatch && fullPick.result !== 'Pending') {
+        updatePickSettlement(r.id, {
+          result: 'Pending',
+          closingLine: null,
+          clv: null,
+          finalConfirmed: false,
+          reason: `Grader matched ${r.source_event_date}; expected ${fullPick.date}`,
           source: r.source_label || null,
           sourceType: r.source_type || null,
           sourceUrl: r.source_url || null,
