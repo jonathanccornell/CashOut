@@ -120,6 +120,10 @@ try {
   `);
 } catch {}
 
+try { db.exec('ALTER TABLE settlement_audit ADD COLUMN source_label TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE settlement_audit ADD COLUMN source_type TEXT DEFAULT NULL'); } catch {}
+try { db.exec('ALTER TABLE settlement_audit ADD COLUMN source_url TEXT DEFAULT NULL'); } catch {}
+
 function getTodayDate() {
   // Always use US Eastern time so dates match the US sports calendar
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
