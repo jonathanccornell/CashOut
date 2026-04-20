@@ -599,6 +599,67 @@ function rescueBestAvailablePicks(rankedPicks) {
     .slice(0, 2);
 }
 
+function sanitizeGeneratedPick(pick) {
+  const conf = Math.min(100, Math.max(0, parseInt(pick.confidence) || 0));
+  const oddsStr = pick.odds || '-110';
+  const betType = pick.betType || pick.bet_type || 'spread';
+  return {
+    sport: pick.sport || 'MULTI',
+    matchup: pick.matchup || '',
+    pick: pick.pick || '',
+    betType,
+    odds: oddsStr,
+    line: pick.line || inferLineFromPick(pick.pick, betType),
+    confidence: conf,
+    signals: Array.isArray(pick.signals) ? pick.signals : [],
+    reasoning: pick.reasoning || '',
+    player: pick.player || null,
+    stat: pick.stat || null,
+    kelly_units: calculateKellyUnits(conf, oddsStr)
+  };
+}
+
+function finalizeGeneratedCard(parsed, learnings) {
+  if (!parsed.picks) throw new Error('Missing picks array');
+  if (!parsed.parlays) parsed.parlays = [];
+
+  parsed.lock = parsed.lock ? sanitizeGeneratedPick(parsed.lock) : null;
+  parsed.picks = parsed.picks.map(sanitizeGeneratedPick).filter(p => p.confidence >= 70);
+
+  if (parsed.lock && parsed.lock.confidence < 86) {
+    parsed.picks.unshift(parsed.lock);
+    parsed.lock = null;
+  }
+
+  const rankedPicks = dedupeAndRankPicks(parsed.picks, learnings);
+  parsed.picks = rankedPicks;
+
+  const qualifiedLock = qualifyLockCandidate(parsed.lock, parsed.picks, learnings);
+  if (qualifiedLock) {
+    parsed.lock = qualifiedLock;
+  } else if (parsed.lock) {
+    parsed.picks = dedupeAndRankPicks([parsed.lock, ...parsed.picks], learnings);
+    parsed.lock = null;
+  }
+
+  parsed.picks = parsed.picks.filter(p => p.selection_score >= 76);
+  if (parsed.picks.length === 0) {
+    parsed.picks = rescueBestAvailablePicks(rankedPicks);
+  }
+
+  const strongestPickScore = parsed.lock?.selection_score || parsed.picks[0]?.selection_score || 0;
+  if (strongestPickScore < 82) parsed.parlays = [];
+  if (parsed.parlays.length > 1) parsed.parlays = parsed.parlays.slice(0, 1);
+
+  return parsed;
+}
+
+function parseGeneratedCard(finalText, learnings) {
+  const jsonMatch = finalText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No valid JSON in response');
+  return finalizeGeneratedCard(JSON.parse(jsonMatch[0]), learnings);
+}
+
 // Kelly Criterion unit sizing using conservative win-prob mapping and 1/8 Kelly
 function calculateKellyUnits(confidence, oddsStr) {
   const p = confidenceToWinProbability(confidence);
@@ -685,26 +746,21 @@ PHASE 6 — RANK BY TRUE EDGE
 
 Return ONLY the JSON object. Nothing else.`;
 
+  const thinSlatePrompt = `Today is ${today}. Your prior scan returned an empty card.
+${learningsBlock}
+
+Run a second-pass thin-slate search with these rules:
+- Focus on the most active major sports today first: NBA, NHL, MLB, then any other clearly active board.
+- Prefer sides and totals over props unless a prop is unusually well-supported.
+- Find the best 1-2 currently bettable numbers on the board right now.
+- A thin but defendable edge is acceptable if the number is still live and the support is specific.
+- Do not force a lock.
+- Do not include parlays on this rescue pass.
+- Only return an empty card if you genuinely cannot defend even one current number after this narrower scan.
+
+Return ONLY the JSON object. Nothing else.`;
+
   try {
-    const sanitize = (pick) => {
-      const conf = Math.min(100, Math.max(0, parseInt(pick.confidence) || 0));
-      const oddsStr = pick.odds || '-110';
-      const betType = pick.betType || pick.bet_type || 'spread';
-      return {
-        sport: pick.sport || 'MULTI',
-        matchup: pick.matchup || '',
-        pick: pick.pick || '',
-        betType,
-        odds: oddsStr,
-        line: pick.line || inferLineFromPick(pick.pick, betType),
-        confidence: conf,
-        signals: Array.isArray(pick.signals) ? pick.signals : [],
-        reasoning: pick.reasoning || '',
-        player: pick.player || null,
-        stat: pick.stat || null,
-        kelly_units: calculateKellyUnits(conf, oddsStr)
-      };
-    };
     const providers = getProviderOrder();
     if (providers.length === 0) {
       throw new Error('No AI provider configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.');
@@ -727,48 +783,28 @@ Return ONLY the JSON object. Nothing else.`;
     for (const provider of providers) {
       try {
         const finalText = await invokeProvider(provider, providerConfig);
-        const jsonMatch = finalText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('No valid JSON in response');
-
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (!parsed.picks) throw new Error('Missing picks array');
-        if (!parsed.parlays) parsed.parlays = [];
-
-        parsed.lock = parsed.lock ? sanitize(parsed.lock) : null;
-        parsed.picks = parsed.picks.map(sanitize).filter(p => p.confidence >= 70);
-
-        if (parsed.lock && parsed.lock.confidence < 86) {
-          parsed.picks.unshift(parsed.lock);
-          parsed.lock = null;
-        }
-
-        const rankedPicks = dedupeAndRankPicks(parsed.picks, learnings);
-        parsed.picks = rankedPicks;
-
-        const qualifiedLock = qualifyLockCandidate(parsed.lock, parsed.picks, learnings);
-        if (qualifiedLock) {
-          parsed.lock = qualifiedLock;
-        } else if (parsed.lock) {
-          parsed.picks = dedupeAndRankPicks([parsed.lock, ...parsed.picks], learnings);
-          parsed.lock = null;
-        }
-
-        parsed.picks = parsed.picks.filter(p => p.selection_score >= 76);
-        if (parsed.picks.length === 0) {
-          parsed.picks = rescueBestAvailablePicks(rankedPicks);
-        }
-
-        const strongestPickScore = parsed.lock?.selection_score || parsed.picks[0]?.selection_score || 0;
-        if (strongestPickScore < 82) parsed.parlays = [];
-        if (parsed.parlays.length > 1) parsed.parlays = parsed.parlays.slice(0, 1);
+        const parsed = parseGeneratedCard(finalText, learnings);
 
         if (parsed.lock || parsed.picks.length > 0 || parsed.parlays.length > 0) {
           console.log(`[CashOut] Generated via ${provider}: 1 Lock + ${parsed.picks.length} picks + ${parsed.parlays.length} parlays`);
           return parsed;
         }
 
-        console.log(`[CashOut] ${PROVIDER_LABELS[provider] || provider} returned an empty card, trying next provider...`);
-        bestEmptyCard = parsed;
+        console.log(`[CashOut] ${PROVIDER_LABELS[provider] || provider} returned an empty card, retrying narrow-slate rescue...`);
+
+        const rescueText = await invokeProvider(provider, {
+          ...providerConfig,
+          prompt: thinSlatePrompt,
+        });
+        const rescueCard = parseGeneratedCard(rescueText, learnings);
+
+        if (rescueCard.lock || rescueCard.picks.length > 0 || rescueCard.parlays.length > 0) {
+          console.log(`[CashOut] Rescue card generated via ${provider}: 1 Lock + ${rescueCard.picks.length} picks + ${rescueCard.parlays.length} parlays`);
+          return rescueCard;
+        }
+
+        console.log(`[CashOut] ${PROVIDER_LABELS[provider] || provider} rescue scan still returned an empty card, trying next provider...`);
+        bestEmptyCard = rescueCard;
       } catch (error) {
         const label = PROVIDER_LABELS[provider] || provider;
         const message = error instanceof Error ? error.message : String(error);
