@@ -162,9 +162,10 @@ async function autoGradePicks() {
       if (!fullPick) continue;
 
       const wasSettled = fullPick.result && fullPick.result !== 'Pending';
-      const exactDateMatch = !r.source_event_date || r.source_event_date === fullPick.date;
+      const exactDateMatch = r.source_event_date === fullPick.date;
+      const hasSourceMetadata = Boolean(r.source_label) && Boolean(r.source_type);
 
-      if (r.final_confirmed === true && exactDateMatch && r.result && r.result !== 'Pending') {
+      if (r.final_confirmed === true && exactDateMatch && hasSourceMetadata && r.result && r.result !== 'Pending') {
         let clv = null;
         if (r.closing_line) {
           clv = calculateCLV(fullPick, r.closing_line);
@@ -188,19 +189,21 @@ async function autoGradePicks() {
         }
 
         console.log(`[CashOut] Pick ${r.id} graded: ${r.result} | CLV: ${clv !== null ? clv.toFixed(2) : 'N/A'} — ${r.reason}`);
-      } else if ((!exactDateMatch || r.final_confirmed === false) && wasSettled && fullPick.date === todayET) {
+      } else if ((!exactDateMatch || !hasSourceMetadata || r.final_confirmed === false) && wasSettled && fullPick.date === todayET) {
         updatePickSettlement(r.id, {
           result: 'Pending',
           closingLine: null,
           clv: null,
           finalConfirmed: false,
-          reason: exactDateMatch ? (r.reason || 'Game not officially final') : `Grader matched ${r.source_event_date}; expected ${fullPick.date}`,
+          reason: !exactDateMatch
+            ? `Grader matched ${r.source_event_date || 'unknown date'}; expected ${fullPick.date}`
+            : (!hasSourceMetadata ? 'Source metadata incomplete for settlement' : (r.reason || 'Game not officially final')),
           source: r.source_label || null,
           sourceType: r.source_type || null,
           sourceUrl: r.source_url || null,
           provider: r.graded_by || 'auto-grader'
         });
-        console.log(`[CashOut] Pick ${r.id} reverted to Pending — ${exactDateMatch ? 'game not officially final' : 'grader matched wrong game date'}.`);
+        console.log(`[CashOut] Pick ${r.id} reverted to Pending — ${!exactDateMatch ? 'grader matched wrong game date' : (!hasSourceMetadata ? 'source metadata incomplete' : 'game not officially final')}.`);
       }
     }
 

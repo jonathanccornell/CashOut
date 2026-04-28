@@ -195,6 +195,39 @@ function formatProviderError(prefix, responseData) {
   return `${prefix}: ${JSON.stringify(responseData).slice(0, 400)}`;
 }
 
+function normalizeGradeResult(result, expectedDateById) {
+  const normalized = { ...result };
+  const expectedDate = expectedDateById.get(Number(normalized.id));
+  const reason = String(normalized.reason || '').toLowerCase();
+  const hasSourceMetadata = Boolean(normalized.source_label) && Boolean(normalized.source_type);
+  const exactDateMatch = Boolean(normalized.source_event_date) && normalized.source_event_date === expectedDate;
+  const contradictoryReason = [
+    'not officially final',
+    'could not be verified',
+    'not the exact',
+    'exact-date rule',
+    'different date',
+    'scheduled for',
+    'game cannot be confirmed final',
+    'pending by the exact-date rule',
+  ].some(fragment => reason.includes(fragment));
+
+  if (normalized.final_confirmed === true) {
+    if (!expectedDate || !exactDateMatch || !hasSourceMetadata || contradictoryReason) {
+      normalized.final_confirmed = false;
+      normalized.result = 'Pending';
+      normalized.closing_line = null;
+    }
+  }
+
+  if (normalized.final_confirmed !== true && normalized.result !== 'Pending') {
+    normalized.result = 'Pending';
+    normalized.closing_line = null;
+  }
+
+  return normalized;
+}
+
 async function invokeAnthropic({ system, prompt, model, maxTokens, maxSearches }) {
   if (!anthropicClient) {
     throw new Error('ANTHROPIC_API_KEY is not configured');
@@ -916,6 +949,7 @@ Use web search when you need current injury news, line information, or game data
 // Auto-grade picks + capture closing line for CLV tracking
 async function gradePicks(pendingPicks) {
   if (!pendingPicks || pendingPicks.length === 0) return [];
+  const expectedDateById = new Map(pendingPicks.map(p => [Number(p.id), p.date]));
 
   const pickList = pendingPicks.map(p =>
     `ID ${p.id}: ${p.sport} | ${p.matchup} | GameDateET: ${p.date} | Pick: ${p.pick} ${p.odds} | BetType: ${p.bet_type} | OpeningLine: ${p.line || p.odds}`
@@ -1008,7 +1042,9 @@ Rules:
 
     const jsonMatch = finalText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) throw new Error('No JSON array in response');
-    return JSON.parse(jsonMatch[0]).map(result => ({ ...result, graded_by: provider }));
+    return JSON.parse(jsonMatch[0]).map(result =>
+      normalizeGradeResult({ ...result, graded_by: provider }, expectedDateById)
+    );
   } catch (err) {
     console.error('[CashOut] Grade error:', err.message);
     return [];

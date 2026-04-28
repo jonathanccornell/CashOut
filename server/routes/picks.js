@@ -144,8 +144,9 @@ router.post('/grade', async (req, res) => {
     for (const r of results) {
       const fullPick = db.prepare('SELECT * FROM picks WHERE id = ?').get(r.id);
       if (!fullPick) continue;
-      const exactDateMatch = !r.source_event_date || r.source_event_date === fullPick.date;
-      if (r.final_confirmed === true && exactDateMatch && r.result && r.result !== 'Pending') {
+      const exactDateMatch = r.source_event_date === fullPick.date;
+      const hasSourceMetadata = Boolean(r.source_label) && Boolean(r.source_type);
+      if (r.final_confirmed === true && exactDateMatch && hasSourceMetadata && r.result && r.result !== 'Pending') {
         const clv = fullPick && r.closing_line ? calculateCLV(fullPick, r.closing_line) : null;
         updatePickSettlement(r.id, {
           result: r.result,
@@ -158,13 +159,15 @@ router.post('/grade', async (req, res) => {
           sourceUrl: r.source_url || null,
           provider: r.graded_by || 'manual-grade-run'
         });
-      } else if (!exactDateMatch && fullPick.result !== 'Pending') {
+      } else if ((!exactDateMatch || !hasSourceMetadata) && fullPick.result !== 'Pending') {
         updatePickSettlement(r.id, {
           result: 'Pending',
           closingLine: null,
           clv: null,
           finalConfirmed: false,
-          reason: `Grader matched ${r.source_event_date}; expected ${fullPick.date}`,
+          reason: !exactDateMatch
+            ? `Grader matched ${r.source_event_date || 'unknown date'}; expected ${fullPick.date}`
+            : 'Source metadata incomplete for settlement',
           source: r.source_label || null,
           sourceType: r.source_type || null,
           sourceUrl: r.source_url || null,
