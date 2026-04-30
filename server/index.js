@@ -12,7 +12,7 @@ const chatRouter = require('./routes/chat');
 // const stripeRouter = require('./routes/stripe');                // enable when ready
 const learningsRouter = require('./routes/learnings');
 const { scheduleLearning, runDailyPostGameAnalysis, updateSignalPerformance, calculateCLV, saveSituationalPatterns, trackOfficialsFromAnalysis } = require('./learning');
-const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, updatePickSettlement, db } = require('./db');
+const { todayPicksExist, clearTodayPicks, getTodayDate, insertPick, insertParlay, updatePickSettlement, clearSettlementConfirmation, recordSettlementConfirmation, db } = require('./db');
 const { generatePicks, gradePicks } = require('./claude');
 
 const app = express();
@@ -164,8 +164,29 @@ async function autoGradePicks() {
       const wasSettled = fullPick.result && fullPick.result !== 'Pending';
       const exactDateMatch = r.source_event_date === fullPick.date;
       const hasSourceMetadata = Boolean(r.source_label) && Boolean(r.source_type);
+      const sameDayPick = fullPick.date === todayET;
 
       if (r.final_confirmed === true && exactDateMatch && hasSourceMetadata && r.result && r.result !== 'Pending') {
+        if (sameDayPick) {
+          const confirmation = recordSettlementConfirmation({
+            pickId: r.id,
+            proposedResult: r.result,
+            sourceEventDate: r.source_event_date,
+            sourceLabel: r.source_label,
+            sourceType: r.source_type,
+            sourceUrl: r.source_url || null,
+            provider: r.graded_by || 'auto-grader',
+            reason: r.reason || null,
+          });
+
+          if (!confirmation.confirmed) {
+            console.log(`[CashOut] Pick ${r.id} awaiting second confirmation (${confirmation.seenCount}/2) before same-day settlement.`);
+            continue;
+          }
+        } else {
+          clearSettlementConfirmation(r.id);
+        }
+
         let clv = null;
         if (r.closing_line) {
           clv = calculateCLV(fullPick, r.closing_line);
@@ -190,6 +211,7 @@ async function autoGradePicks() {
 
         console.log(`[CashOut] Pick ${r.id} graded: ${r.result} | CLV: ${clv !== null ? clv.toFixed(2) : 'N/A'} — ${r.reason}`);
       } else if ((!exactDateMatch || !hasSourceMetadata || r.final_confirmed === false) && wasSettled && fullPick.date === todayET) {
+        clearSettlementConfirmation(r.id);
         updatePickSettlement(r.id, {
           result: 'Pending',
           closingLine: null,
@@ -204,6 +226,8 @@ async function autoGradePicks() {
           provider: r.graded_by || 'auto-grader'
         });
         console.log(`[CashOut] Pick ${r.id} reverted to Pending — ${!exactDateMatch ? 'grader matched wrong game date' : (!hasSourceMetadata ? 'source metadata incomplete' : 'game not officially final')}.`);
+      } else if (!wasSettled) {
+        clearSettlementConfirmation(r.id);
       }
     }
 

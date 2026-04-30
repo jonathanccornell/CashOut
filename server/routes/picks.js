@@ -6,6 +6,8 @@ const {
   getTodayLock,
   insertPick,
   updatePickSettlement,
+  clearSettlementConfirmation,
+  recordSettlementConfirmation,
   todayPicksExist,
   clearTodayPicks,
   insertParlay,
@@ -146,7 +148,27 @@ router.post('/grade', async (req, res) => {
       if (!fullPick) continue;
       const exactDateMatch = r.source_event_date === fullPick.date;
       const hasSourceMetadata = Boolean(r.source_label) && Boolean(r.source_type);
+      const sameDayPick = fullPick.date === today;
       if (r.final_confirmed === true && exactDateMatch && hasSourceMetadata && r.result && r.result !== 'Pending') {
+        if (sameDayPick) {
+          const confirmation = recordSettlementConfirmation({
+            pickId: r.id,
+            proposedResult: r.result,
+            sourceEventDate: r.source_event_date,
+            sourceLabel: r.source_label,
+            sourceType: r.source_type,
+            sourceUrl: r.source_url || null,
+            provider: r.graded_by || 'manual-grade-run',
+            reason: r.reason || null,
+          });
+
+          if (!confirmation.confirmed) {
+            continue;
+          }
+        } else {
+          clearSettlementConfirmation(r.id);
+        }
+
         const clv = fullPick && r.closing_line ? calculateCLV(fullPick, r.closing_line) : null;
         updatePickSettlement(r.id, {
           result: r.result,
@@ -160,6 +182,7 @@ router.post('/grade', async (req, res) => {
           provider: r.graded_by || 'manual-grade-run'
         });
       } else if ((!exactDateMatch || !hasSourceMetadata) && fullPick.result !== 'Pending') {
+        clearSettlementConfirmation(r.id);
         updatePickSettlement(r.id, {
           result: 'Pending',
           closingLine: null,
@@ -173,6 +196,8 @@ router.post('/grade', async (req, res) => {
           sourceUrl: r.source_url || null,
           provider: r.graded_by || 'manual-grade-run'
         });
+      } else {
+        clearSettlementConfirmation(r.id);
       }
     }
     res.json({ graded: results });

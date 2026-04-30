@@ -117,6 +117,20 @@ try {
       FOREIGN KEY(pick_id) REFERENCES picks(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_settlement_audit_pick_id ON settlement_audit(pick_id);
+    CREATE TABLE IF NOT EXISTS settlement_confirmations (
+      pick_id INTEGER PRIMARY KEY,
+      proposed_result TEXT NOT NULL,
+      source_event_date TEXT NOT NULL,
+      source_label TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      source_url TEXT,
+      provider TEXT,
+      reason TEXT,
+      seen_count INTEGER DEFAULT 1,
+      first_seen_at TEXT DEFAULT (datetime('now')),
+      last_seen_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(pick_id) REFERENCES picks(id) ON DELETE CASCADE
+    );
   `);
 } catch {}
 
@@ -222,6 +236,56 @@ function insertPick(pick) {
 
 function updatePickResult(id, result) {
   return db.prepare('UPDATE picks SET result = ? WHERE id = ?').run(result, id);
+}
+
+function clearSettlementConfirmation(pickId) {
+  return db.prepare('DELETE FROM settlement_confirmations WHERE pick_id = ?').run(pickId);
+}
+
+function recordSettlementConfirmation({
+  pickId,
+  proposedResult,
+  sourceEventDate,
+  sourceLabel,
+  sourceType,
+  sourceUrl = null,
+  provider = null,
+  reason = null
+}) {
+  const existing = db.prepare('SELECT * FROM settlement_confirmations WHERE pick_id = ?').get(pickId);
+  const fingerprintMatches = existing
+    && existing.proposed_result === proposedResult
+    && existing.source_event_date === sourceEventDate
+    && existing.source_label === sourceLabel
+    && existing.source_type === sourceType
+    && (existing.source_url || null) === (sourceUrl || null);
+
+  if (!existing) {
+    db.prepare(`
+      INSERT INTO settlement_confirmations (
+        pick_id, proposed_result, source_event_date, source_label, source_type, source_url, provider, reason
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(pickId, proposedResult, sourceEventDate, sourceLabel, sourceType, sourceUrl, provider, reason);
+    return { seenCount: 1, confirmed: false };
+  }
+
+  if (!fingerprintMatches) {
+    db.prepare(`
+      UPDATE settlement_confirmations
+      SET proposed_result = ?, source_event_date = ?, source_label = ?, source_type = ?, source_url = ?, provider = ?, reason = ?, seen_count = 1, first_seen_at = datetime('now'), last_seen_at = datetime('now')
+      WHERE pick_id = ?
+    `).run(proposedResult, sourceEventDate, sourceLabel, sourceType, sourceUrl, provider, reason, pickId);
+    return { seenCount: 1, confirmed: false };
+  }
+
+  db.prepare(`
+    UPDATE settlement_confirmations
+    SET seen_count = seen_count + 1, provider = ?, reason = ?, last_seen_at = datetime('now')
+    WHERE pick_id = ?
+  `).run(provider, reason, pickId);
+
+  const updated = db.prepare('SELECT seen_count FROM settlement_confirmations WHERE pick_id = ?').get(pickId);
+  return { seenCount: updated?.seen_count || 1, confirmed: (updated?.seen_count || 1) >= 2 };
 }
 
 function recordSettlementAudit({
@@ -588,6 +652,7 @@ function resetAllRecords() {
     db.prepare('DELETE FROM situational_patterns').run();
     db.prepare('DELETE FROM official_tendencies').run();
     db.prepare('DELETE FROM settlement_audit').run();
+    db.prepare('DELETE FROM settlement_confirmations').run();
     db.prepare('DELETE FROM model_learnings').run();
     db.prepare('DELETE FROM learning_runs').run();
     db.prepare('DELETE FROM daily_analysis').run();
@@ -600,6 +665,7 @@ function resetAllRecords() {
         'situational_patterns',
         'official_tendencies',
         'settlement_audit',
+        'settlement_confirmations',
         'model_learnings',
         'learning_runs',
         'daily_analysis'
@@ -645,6 +711,8 @@ module.exports = {
   updateParlayResult,
   updatePickSettlement,
   recordSettlementAudit,
+  clearSettlementConfirmation,
+  recordSettlementConfirmation,
   getAllTimeRecord,
   getHistory,
   getAllPicksForExport,
